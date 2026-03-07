@@ -29,6 +29,7 @@ def build():
             continue
         try:
             ev.end.strptime(date_string, format_string)
+        except:
             logging.debug(f"Skipping: {ev}")
             continue
         if isinstance(ev.end, str):
