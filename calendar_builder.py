@@ -26,8 +26,8 @@ def build():
             #logging.debug(f"The GitHub reference is: {group}")
         #else:
             #ev.name = e.get("name","Swim Meet")
-        if "EVENT" in ev.begin:
-            logging.debug(f"Ignore: {ev}")
+        if "VEVENT" in ev.end:
+            logging.debug(f"Ignore (VEVENT): {ev}")
             continue
         if ev.begin > ev.end:
             print(f"Error: {ev.name} ends before it starts.")
