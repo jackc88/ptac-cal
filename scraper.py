@@ -61,7 +61,7 @@ def parse():
         if t and current_group and current_date:
             start,end,ampm=t.groups()
             if end < start:
-                start = parse_time(current_date,start,ampm) - timedelta(hours=12)
+                ampm="AM"
             events.append({
                 "group":current_group,
                 "pool":current_pool,
