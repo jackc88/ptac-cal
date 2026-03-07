@@ -17,8 +17,8 @@ def build():
         ev = Event()
         if e["type"] == "practice":
             ev.name = f"{e['group']} Practice"
-        else:
-            ev.name = e.get("name","Swim Meet")
+        #else:
+            #ev.name = e.get("name","Swim Meet")
         ev.begin = e["start"]
         ev.end = e["end"]
         ev.location = e["pool"]
