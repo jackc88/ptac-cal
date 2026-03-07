@@ -71,7 +71,7 @@ def build():
                 #continue
             #Fix PM assumption in scraper
             if ev.end > ev.begin:
-                ev.start = ev.begin - timedelta(hours=12)
+                ev.begin = ev.begin - timedelta(hours=12)
                 logging.debug(f"Adj -12 hrs: {ev.begin}")
                 
             master.events.add(ev)
