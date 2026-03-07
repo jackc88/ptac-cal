@@ -76,9 +76,10 @@ def build():
                 #pass
             elif ev.end.time() <= ev.begin.time():
                 logging.debug(f"ERROR: start: {ev.begin!r} end: {ev.end!r}")
-                adj_ev.begin = ev.begin - timedelta(hours=12)
-                logging.debug(f"Adj -12 hrs: {adj_ev.begin}")
-                ev.begin = adj_ev.begin
+                #adj_ev.begin = ev.begin - timedelta(hours=12)
+                #logging.debug(f"Adj -12 hrs: {adj_ev.begin}")
+                #ev.begin = adj_ev.begin
+                ev.begin -= timedelta(hours=12)
                 logging.debug(f"Adj -12 hrs: {ev.begin}")
                 return adj_ev.begin
             else:
