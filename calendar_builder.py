@@ -27,7 +27,10 @@ def build():
         #else:
             #ev.name = e.get("name","Swim Meet")
         if isinstance(ev.end, str):
-            logging.debug(f"Ignore (str): {ev}")
+            logging.debug(f"Ignore end (str): {ev}")
+            continue
+        if isinstance(ev.begin, str):
+            logging.debug(f"Ignore begin (str): {ev}")
             continue
         #if "VEVENT" in ev.end.casefold():
             #logging.debug(f"Ignore (VEVENT): {ev}")
