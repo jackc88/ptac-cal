@@ -27,6 +27,10 @@ def build():
         else:
             #ev.name = e.get("name","Swim Meet")
             continue
+        try:
+            ev.end.strptime(date_string, format_string)
+        except:
+            continue
         if isinstance(ev.end, str):
             logging.debug(f"Ignore end (str): {ev}")
             continue
