@@ -71,9 +71,11 @@ def build():
                 #continue
             #Fix PM assumption in scraper
             if ev.end < ev.begin:
-                logging.debug(f"start: {ev.begin} end: {ev.end}")
+                logging.debug(f"ERROR: start: {ev.begin} end: {ev.end}")
                 adj_ev.begin = ev.begin - timedelta(hours=12)
                 logging.debug(f"Adj -12 hrs: {adj_ev.begin}")
+                ev.begin = adj_ev.begin
+                logging.debug(f"Adj -12 hrs: {ev.begin}")
                 return adj_ev.begin
             else:
                 logging.debug(f"PASS: start: {ev.begin} end: {ev.end}")
