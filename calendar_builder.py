@@ -4,7 +4,7 @@ import json
 from scraper import parse
 import os #debugging
 import logging #debugging
-import datetime
+import datetime, timedelta, date
 logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(
     filename='OUTPUT/debug.log',
@@ -35,17 +35,7 @@ def build():
             else:
                 #ev.name = e.get("name","Swim Meet")
                 continue
-            try:
-                isinstance(ev.end, datetime.date)
-                #ev.end.strptime(date_string, format_string)
-                ##logging.debug(f"PASS: {ev.end}")
-                ##logging.debug(print(type(ev.end)))
-                pass
-            except:
-                logging.debug(f"FAIL: {ev.end}")
-                logging.debug(print(type(ev.end)))
-                logging.debug(print(datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")))
-                continue
+
         #if isinstance(ev.end, str):
             #logging.debug(f"Ignore end (str): {ev}")
             #continue
@@ -68,6 +58,22 @@ def build():
             ##logging.debug(f"End is: {ev.end}")
             ev.location = e["pool"]
             ##logging.debug(f"The GitHub reference is: {ev.location}")
+            try:
+                isinstance(ev.end, datetime.date)
+                #ev.end.strptime(date_string, format_string)
+                ##logging.debug(f"PASS: {ev.end}")
+                ##logging.debug(print(type(ev.end)))
+                pass
+            except:
+                logging.debug(f"FAIL: {ev.end}")
+                logging.debug(print(type(ev.end)))
+                logging.debug(print(datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")))
+                continue
+            #Fix PM assumption in scraper
+            if ev.end > ev.begin:
+                ev.start = ev.begin - timedelta(hours=12)
+                logging.debug(f"Adj -12 hrs: {ev.begin}
+                
             master.events.add(ev)
             g = e["group"]
             ##logging.debug(f"Event: {g}")
