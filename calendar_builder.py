@@ -19,27 +19,28 @@ def build():
     swimmers_cal = {}
 
     for e in events:
-        logging.debug(f"Event: {e}")
-        ev = Event()
-        logging.debug(f"Event: {ev}")
-        if e["type"] == "practice":
-            #logging.debug(f"The GitHub reference is: {type}")
-            ev.name = f"{e['group']} Practice"
-            #logging.debug(f"The GitHub reference is: {group}")
-        else:
-            #ev.name = e.get("name","Swim Meet")
-            continue
         try:
-            isinstance(ev.end, datetime.date)
-            #ev.end.strptime(date_string, format_string)
-            logging.debug(f"PASS: {ev.end}")
-            logging.debug(print(type(ev.end)))
-            pass
-        except:
-            logging.debug(f"FAIL: {ev.end}")
-            logging.debug(print(type(ev.end)))
-            logging.debug(print(datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")))
-            continue
+            logging.debug(f"Event: {e}")
+            ev = Event()
+            logging.debug(f"Event: {ev}")
+            if e["type"] == "practice":
+                #logging.debug(f"The GitHub reference is: {type}")
+                ev.name = f"{e['group']} Practice"
+                #logging.debug(f"The GitHub reference is: {group}")
+            else:
+                #ev.name = e.get("name","Swim Meet")
+                continue
+            try:
+                isinstance(ev.end, datetime.date)
+                #ev.end.strptime(date_string, format_string)
+                logging.debug(f"PASS: {ev.end}")
+                logging.debug(print(type(ev.end)))
+                pass
+            except:
+                logging.debug(f"FAIL: {ev.end}")
+                logging.debug(print(type(ev.end)))
+                logging.debug(print(datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")))
+                continue
         #if isinstance(ev.end, str):
             #logging.debug(f"Ignore end (str): {ev}")
             #continue
@@ -56,23 +57,23 @@ def build():
              #print(f"Warning: {ev.name} {ev.begin} has 0 duration.")
              ## Optional: Fix 0-length event
              #ev.end = ev.begin.shift(hours=1)
-        ev.begin = e["start"]
-        logging.debug(f"Start is: {ev.begin}")
-        ev.end = e["end"]
-        logging.debug(f"End is: {ev.end}")
-        ev.location = e["pool"]
-        logging.debug(f"The GitHub reference is: {ev.location}")
-        master.events.add(ev)
-        g = e["group"]
-        logging.debug(f"Event: {g}")
-        if g not in groups:
-            groups[g] = Calendar()
-        groups[g].events.add(ev)
-        for swimmer,sgroups in swimmers.items():
-            if g in sgroups:
-                if swimmer not in swimmers_cal:
-                    swimmers_cal[swimmer] = Calendar()
-                swimmers_cal[swimmer].events.add(ev)
+            ev.begin = e["start"]
+            logging.debug(f"Start is: {ev.begin}")
+            ev.end = e["end"]
+            logging.debug(f"End is: {ev.end}")
+            ev.location = e["pool"]
+            logging.debug(f"The GitHub reference is: {ev.location}")
+            master.events.add(ev)
+            g = e["group"]
+            logging.debug(f"Event: {g}")
+            if g not in groups:
+                groups[g] = Calendar()
+            groups[g].events.add(ev)
+            for swimmer,sgroups in swimmers.items():
+                if g in sgroups:
+                    if swimmer not in swimmers_cal:
+                        swimmers_cal[swimmer] = Calendar()
+                    swimmers_cal[swimmer].events.add(ev)
         except:
             continue
 
