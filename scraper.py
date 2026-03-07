@@ -34,7 +34,7 @@ def parse():
     events=[]
     #date_string = datetime.now()
     #current_date=datetime.strptime(date_string, "%Y-%m-%d")
-    current_date = datetime.now()
+    current_date=None
     current_pool=None
     current_group=None
 
@@ -68,12 +68,13 @@ def parse():
             })
 
         if "Meet" in line or "Championship" in line:
-            events.append({
-                "group":"ALL",
-                "pool":None,
-                "start":datetime.strptime(current_date,"%Y-%m-%d"),
-                "end":datetime.strptime(current_date,"%Y-%m-%d"),
-                "type":"meet",
-                "name":line
-            })
+            #events.append({
+                #"group":"ALL",
+                #"pool":None,
+                #"start":datetime.strptime(current_date,"%Y-%m-%d"),
+                #"end":datetime.strptime(current_date,"%Y-%m-%d"),
+                #"type":"meet",
+                #"name":line
+            #})
+            continue
     return events
