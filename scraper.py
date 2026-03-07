@@ -67,7 +67,7 @@ def parse():
             start, end, ampm = groups[0], groups[1], groups[2]
             if end > start:
                 pass
-            elif:
+            else:
                 logging.debug(f"ERR: t: {t} g: {current_group} d: {current_date}")
                 ampm = "AM"
                 #t.start.ampm="AM"
