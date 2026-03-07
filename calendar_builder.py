@@ -71,8 +71,10 @@ def build():
                 #continue
             #Fix PM assumption in scraper
             if ev.end < ev.begin:
+                logging.debug(f"start: {ev.begin} end: {ev.end}")
                 ev.begin = ev.begin - timedelta(hours=12)
                 logging.debug(f"Adj -12 hrs: {ev.begin}")
+                return ev.begin
                 
             master.events.add(ev)
             g = e["group"]
