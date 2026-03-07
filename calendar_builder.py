@@ -16,11 +16,12 @@ def build():
     swimmers_cal = {}
 
     for e in events:
+        logging.debug(f"The GitHub reference is: {e}")
         ev = Event()
         if e["type"] == "practice":
             logging.debug(f"The GitHub reference is: {type}")
             ev.name = f"{e['group']} Practice"
-            logging.debug(f"The GitHub reference is: {group}")
+            #logging.debug(f"The GitHub reference is: {group}")
         #else:
             #ev.name = e.get("name","Swim Meet")
         ev.begin = e["start"]
