@@ -49,8 +49,8 @@ def build():
         #if "VEVENT" in ev.end.casefold():
             #logging.debug(f"Ignore (VEVENT): {ev}")
             #continue
-        if ev.begin > ev.end:
-            logging.debug(f"Error: {ev.name} ends before it starts.")
+        #if ev.begin > ev.end:
+            #logging.debug(f"Error: {ev.name} ends before it starts.")
         # Check for 0-length events
         elif ev.begin == ev.end:
              print(f"Warning: {ev.name} {ev.begin} has 0 duration.")
