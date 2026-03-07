@@ -1,8 +1,7 @@
 import requests
 import re
 from bs4 import BeautifulSoup
-#from datetime import datetime
-from datetime import date
+from datetime import datetime
 
 URL = "https://www.gomotionapp.com/team/njptac/page/calendar1/all-groups"
 
@@ -33,7 +32,7 @@ def fetch_lines():
 def parse():
     lines=fetch_lines()
     events=[]
-    current_date=datetime.strptime(date_string, "%Y-%m-%d")
+    current_date=datetime.datetime.strptime(date_string, "%Y-%m-%d")
     current_pool=None
     current_group=None
 
