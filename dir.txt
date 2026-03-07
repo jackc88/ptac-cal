@@ -1,0 +1,12 @@
+ptac-calendar-sync/
+├─ README.md
+├─ requirements.txt
+├─ scraper.py
+├─ calendar_builder.py
+├─ google_sync.py
+├─ swimmers.json
+├─ state.json
+├─ output/       (empty folder for ICS files)
+└─ .github/
+    └─ workflows/
+        └─ update.yml
