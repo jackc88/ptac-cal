@@ -32,7 +32,7 @@ def fetch_lines():
 def parse():
     lines=fetch_lines()
     events=[]
-    current_date=datetime.datetime.strptime(date_string, "%Y-%m-%d")
+    current_date=datetime.strptime(date_string, "%Y-%m-%d")
     current_pool=None
     current_group=None
 
