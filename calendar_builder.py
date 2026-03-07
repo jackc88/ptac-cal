@@ -78,6 +78,7 @@ def build():
             else:
                 logging.debug(f"PASS: start: {ev.begin} end: {ev.end}")
                 return ev.begin
+                pass
                 
             master.events.add(ev)
             g = e["group"]
