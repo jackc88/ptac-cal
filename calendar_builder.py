@@ -9,8 +9,8 @@ OUTPUT = Path("output")
 OUTPUT.mkdir(exist_ok=True)
 
 def build():
-    #events = parse()
-    events = Component.serialize()
+    events = parse()
+    #events = Component.serialize()
     swimmers = json.load(open("swimmers.json"))
     master = Calendar()
     groups = {}
