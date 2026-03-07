@@ -4,7 +4,7 @@ import json
 from scraper import parse
 import os #debugging
 import logging #debugging
-logging.basicConfig(level=logging.debug)
+logging.basicConfig(level=logging.DEBUG)
 
 OUTPUT = Path("output")
 OUTPUT.mkdir(exist_ok=True)
