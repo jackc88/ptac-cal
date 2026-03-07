@@ -32,6 +32,7 @@ def build():
             isinstance(ev.end, datetime.date)
             #ev.end.strptime(date_string, format_string)
             logging.debug(f"PASS: {ev.end}")
+            logging.debug(print(type(ev.end))
         except:
             logging.debug(f"FAIL: {ev.end}")
             continue
