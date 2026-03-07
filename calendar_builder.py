@@ -27,7 +27,7 @@ def build():
         ev.begin = e["start"]
         #logging.debug(f"The GitHub reference is: {start}")
         ev.end = e["end"]
-        #logging.debug(f"The GitHub reference is: {end}")
+        logging.debug(f"The GitHub reference is: {ev.end}")
         ev.location = e["pool"]
         #logging.debug(f"The GitHub reference is: {location}")
         master.events.add(ev)
