@@ -1,7 +1,7 @@
 import requests
 import re
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta, date
 #import datetime
 
 URL = "https://www.gomotionapp.com/team/njptac/page/calendar1/all-groups"
@@ -67,6 +67,9 @@ def parse():
                 "end":parse_time(current_date,end,ampm),
                 "type":"practice"
             })
+
+        if end < start:
+            start = start - timedelta(hours=12)
 
         if "Meet" in line or "Championship" in line:
             #events.append({
