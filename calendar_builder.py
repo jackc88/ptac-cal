@@ -26,6 +26,13 @@ def build():
             #logging.debug(f"The GitHub reference is: {group}")
         #else:
             #ev.name = e.get("name","Swim Meet")
+        if ev.begin > ev.end:
+            print(f"Error: {ev.name} ends before it starts.")
+        # Check for 0-length events
+         elif ev.begin == ev.end:
+             print(f"Warning: {ev.name} {ev.begin} has 0 duration.")
+             # Optional: Fix 0-length event
+             ev.end = ev.begin.shift(hours=1)
         ev.begin = e["start"]
         logging.debug(f"Start is: {ev.begin}")
         ev.end = e["end"]
