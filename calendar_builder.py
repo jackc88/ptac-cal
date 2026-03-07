@@ -42,7 +42,7 @@ def build():
             #logging.debug(f"Ignore (VEVENT): {ev}")
             #continue
         if ev.begin > ev.end:
-            print(f"Error: {ev.name} ends before it starts.")
+            logging.debug(f"Error: {ev.name} ends before it starts.")
         # Check for 0-length events
         elif ev.begin == ev.end:
              print(f"Warning: {ev.name} {ev.begin} has 0 duration.")
