@@ -4,6 +4,7 @@ import json
 from scraper import parse
 import os #debugging
 import logging #debugging
+import datetime
 logging.basicConfig(level=logging.DEBUG)
 
 OUTPUT = Path("output")
