@@ -24,8 +24,9 @@ def build():
             #logging.debug(f"The GitHub reference is: {type}")
             ev.name = f"{e['group']} Practice"
             #logging.debug(f"The GitHub reference is: {group}")
-        #else:
+        else:
             #ev.name = e.get("name","Swim Meet")
+            continue
         if isinstance(ev.end, str):
             logging.debug(f"Ignore end (str): {ev}")
             continue
