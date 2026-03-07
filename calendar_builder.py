@@ -26,7 +26,7 @@ def build():
     for e in events:
         try:
             ##logging.debug(f"Event: {e}")
-            ##ev = Event()
+            ev = Event()
             ##logging.debug(f"Event: {ev}")
             if e["type"] == "practice":
                 #logging.debug(f"The GitHub reference is: {type}")
