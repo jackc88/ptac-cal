@@ -73,6 +73,8 @@ def build():
                 if swimmer not in swimmers_cal:
                     swimmers_cal[swimmer] = Calendar()
                 swimmers_cal[swimmer].events.add(ev)
+        except:
+            continue
 
     # subscription feeds
     (OUTPUT/"ptac_master.ics").write_text(str(master))
