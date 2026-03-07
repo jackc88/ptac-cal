@@ -29,10 +29,11 @@ def build():
             #ev.name = e.get("name","Swim Meet")
             continue
         try:
-            ev.end.strptime(date_string, format_string)
-            logging.debug(f"PASS: {ev}")
+            isinstance(ev.end, datetime.date)
+            #ev.end.strptime(date_string, format_string)
+            logging.debug(f"PASS: {ev.end}")
         except:
-            logging.debug(f"FAIL: {ev}")
+            logging.debug(f"FAIL: {ev.end}")
             continue
         if isinstance(ev.end, str):
             logging.debug(f"Ignore end (str): {ev}")
