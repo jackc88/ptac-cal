@@ -6,6 +6,11 @@ import os #debugging
 import logging #debugging
 import datetime
 logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    filename='OUTPUT/debug.log',
+    level=logging.DEBUG, # Only log messages of level ERROR and above
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 OUTPUT = Path("output")
 OUTPUT.mkdir(exist_ok=True)
@@ -20,9 +25,9 @@ def build():
 
     for e in events:
         try:
-            logging.debug(f"Event: {e}")
-            ev = Event()
-            logging.debug(f"Event: {ev}")
+            ##logging.debug(f"Event: {e}")
+            ##ev = Event()
+            ##logging.debug(f"Event: {ev}")
             if e["type"] == "practice":
                 #logging.debug(f"The GitHub reference is: {type}")
                 ev.name = f"{e['group']} Practice"
@@ -33,8 +38,8 @@ def build():
             try:
                 isinstance(ev.end, datetime.date)
                 #ev.end.strptime(date_string, format_string)
-                logging.debug(f"PASS: {ev.end}")
-                logging.debug(print(type(ev.end)))
+                ##logging.debug(f"PASS: {ev.end}")
+                ##logging.debug(print(type(ev.end)))
                 pass
             except:
                 logging.debug(f"FAIL: {ev.end}")
@@ -58,14 +63,14 @@ def build():
              ## Optional: Fix 0-length event
              #ev.end = ev.begin.shift(hours=1)
             ev.begin = e["start"]
-            logging.debug(f"Start is: {ev.begin}")
+            ##logging.debug(f"Start is: {ev.begin}")
             ev.end = e["end"]
-            logging.debug(f"End is: {ev.end}")
+            ##logging.debug(f"End is: {ev.end}")
             ev.location = e["pool"]
-            logging.debug(f"The GitHub reference is: {ev.location}")
+            ##logging.debug(f"The GitHub reference is: {ev.location}")
             master.events.add(ev)
             g = e["group"]
-            logging.debug(f"Event: {g}")
+            ##logging.debug(f"Event: {g}")
             if g not in groups:
                 groups[g] = Calendar()
             groups[g].events.add(ev)
@@ -75,6 +80,7 @@ def build():
                         swimmers_cal[swimmer] = Calendar()
                     swimmers_cal[swimmer].events.add(ev)
         except:
+            logging.debug(f"Exception: {e}", exc_info=True)
             continue
 
     # subscription feeds
