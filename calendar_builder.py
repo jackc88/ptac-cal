@@ -33,9 +33,11 @@ def build():
             #ev.end.strptime(date_string, format_string)
             logging.debug(f"PASS: {ev.end}")
             logging.debug(print(type(ev.end)))
+            pass
         except:
             logging.debug(f"FAIL: {ev.end}")
             logging.debug(print(type(ev.end)))
+            logging.debug(print(datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")))
             continue
         if isinstance(ev.end, str):
             logging.debug(f"Ignore end (str): {ev}")
