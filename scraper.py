@@ -61,7 +61,8 @@ def parse():
         if t and current_group and current_date:
             start,end,ampm=t.groups()
             if end < start:
-                t.start.ampm="AM"
+                logging.debug(f"t: {t} g: {current_group} d: {current_date}")
+                #t.start.ampm="AM"
             events.append({
                 "group":current_group,
                 "pool":current_pool,
