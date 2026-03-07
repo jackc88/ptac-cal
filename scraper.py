@@ -3,6 +3,8 @@ import re
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, date
 #import datetime
+import os #debugging
+import logging #debugging
 
 URL = "https://www.gomotionapp.com/team/njptac/page/calendar1/all-groups"
 
