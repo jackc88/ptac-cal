@@ -26,9 +26,12 @@ def build():
             #logging.debug(f"The GitHub reference is: {group}")
         #else:
             #ev.name = e.get("name","Swim Meet")
-        if "VEVENT" in ev.end:
-            logging.debug(f"Ignore (VEVENT): {ev}")
+        if isinstance(ev.end, str):
+            logging.debug(f"Ignore (str): {ev}")
             continue
+        #if "VEVENT" in ev.end.casefold():
+            #logging.debug(f"Ignore (VEVENT): {ev}")
+            #continue
         if ev.begin > ev.end:
             print(f"Error: {ev.name} ends before it starts.")
         # Check for 0-length events
