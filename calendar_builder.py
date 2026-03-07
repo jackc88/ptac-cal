@@ -2,6 +2,8 @@ from ics import Calendar, Event
 from pathlib import Path
 import json
 from scraper import parse
+import os #debugging
+import logging #debugging
 
 OUTPUT = Path("output")
 OUTPUT.mkdir(exist_ok=True)
