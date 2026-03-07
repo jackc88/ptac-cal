@@ -1,8 +1,8 @@
 import requests
 import re
 from bs4 import BeautifulSoup
-#from datetime import datetime
-import datetime
+from datetime import datetime
+#import datetime
 
 URL = "https://www.gomotionapp.com/team/njptac/page/calendar1/all-groups"
 
@@ -77,5 +77,5 @@ def parse():
                 #"type":"meet",
                 #"name":line
             #})
-            continue
+            pass
     return events
