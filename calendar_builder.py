@@ -40,22 +40,22 @@ def build():
             logging.debug(print(type(ev.end)))
             logging.debug(print(datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")))
             continue
-        if isinstance(ev.end, str):
-            logging.debug(f"Ignore end (str): {ev}")
-            continue
-        if isinstance(ev.begin, str):
-            logging.debug(f"Ignore begin (str): {ev}")
-            continue
+        #if isinstance(ev.end, str):
+            #logging.debug(f"Ignore end (str): {ev}")
+            #continue
+        #if isinstance(ev.begin, str):
+            #logging.debug(f"Ignore begin (str): {ev}")
+            #continue
         #if "VEVENT" in ev.end.casefold():
             #logging.debug(f"Ignore (VEVENT): {ev}")
             #continue
         #if ev.begin > ev.end:
             #logging.debug(f"Error: {ev.name} ends before it starts.")
         # Check for 0-length events
-        elif ev.begin == ev.end:
-             print(f"Warning: {ev.name} {ev.begin} has 0 duration.")
-             # Optional: Fix 0-length event
-             ev.end = ev.begin.shift(hours=1)
+        #elif ev.begin == ev.end:
+             #print(f"Warning: {ev.name} {ev.begin} has 0 duration.")
+             ## Optional: Fix 0-length event
+             #ev.end = ev.begin.shift(hours=1)
         ev.begin = e["start"]
         logging.debug(f"Start is: {ev.begin}")
         ev.end = e["end"]
