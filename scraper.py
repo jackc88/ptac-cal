@@ -61,10 +61,16 @@ def parse():
 
         t=time_pattern.search(line)
         if t and current_group and current_date:
-            start,end,ampm=t.groups()
+            # Convert tuple to a list so it's mutable
+            groups = list(t.groups())
+            #start,end,ampm=t.groups()
+            start, end, ampm = groups[0], groups[1], groups[2]
             if end < start:
-                logging.debug(f"t: {t} g: {current_group} d: {current_date}")
+                logging.debug(f"ERR: t: {t} g: {current_group} d: {current_date}")
+                ampm = "AM"
                 #t.start.ampm="AM"
+                groups[2] = ampm  # Update the list if you need the full set later
+                logging.debug(f"CHG: t: {t} g: {current_group} d: {current_date}")
             events.append({
                 "group":current_group,
                 "pool":current_pool,
