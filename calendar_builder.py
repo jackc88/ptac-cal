@@ -71,11 +71,11 @@ def build():
                 #continue
             #Fix PM assumption in scraper
             if ev.end > ev.begin:
-                logging.debug(f"PASS: start: {ev.begin} end: {ev.end}")
+                logging.debug(f"PASS: start: {ev.begin!r} end: {ev.end!r}")
                 #return ev.begin
                 #pass
-            elif ev.end < ev.begin:
-                logging.debug(f"ERROR: start: {ev.begin} end: {ev.end}")
+            elif ev.end.time() <= ev.begin.time():
+                logging.debug(f"ERROR: start: {ev.begin!r} end: {ev.end!r}")
                 adj_ev.begin = ev.begin - timedelta(hours=12)
                 logging.debug(f"Adj -12 hrs: {adj_ev.begin}")
                 ev.begin = adj_ev.begin
@@ -83,7 +83,10 @@ def build():
                 return adj_ev.begin
             else:
                 logging.debug(f"ERROR: start: {ev.begin} end: {ev.end}")
-                
+
+            #match (ev.begin, ev.end):
+             #case 
+            
             master.events.add(ev)
             g = e["group"]
             ##logging.debug(f"Event: {g}")
