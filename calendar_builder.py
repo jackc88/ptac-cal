@@ -4,7 +4,7 @@ import json
 from scraper import parse
 import os #debugging
 import logging #debugging
-import datetime, timedelta, date
+frome datetime import datetime, timedelta, date
 logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(
     filename='OUTPUT/debug.log',
