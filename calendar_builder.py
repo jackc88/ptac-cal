@@ -18,6 +18,7 @@ def build():
     swimmers_cal = {}
 
     for e in events:
+        logging.debug(f"Event: {e}")
         ev = Event()
         logging.debug(f"Event: {ev}")
         if e["type"] == "practice":
@@ -53,9 +54,10 @@ def build():
         ev.end = e["end"]
         logging.debug(f"End is: {ev.end}")
         ev.location = e["pool"]
-        #logging.debug(f"The GitHub reference is: {location}")
+        logging.debug(f"The GitHub reference is: {ev.location}")
         master.events.add(ev)
         g = e["group"]
+        logging.debug(f"Event: {g}")
         if g not in groups:
             groups[g] = Calendar()
         groups[g].events.add(ev)
