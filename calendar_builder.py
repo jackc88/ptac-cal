@@ -19,7 +19,7 @@ def build():
 
     for e in events:
         ev = Event()
-        logging.debug(f"The GitHub reference is: {ev}")
+        logging.debug(f"Event: {ev}")
         if e["type"] == "practice":
             #logging.debug(f"The GitHub reference is: {type}")
             ev.name = f"{e['group']} Practice"
@@ -27,9 +27,9 @@ def build():
         #else:
             #ev.name = e.get("name","Swim Meet")
         ev.begin = e["start"]
-        #logging.debug(f"The GitHub reference is: {start}")
+        logging.debug(f"Start is: {ev.begin}")
         ev.end = e["end"]
-        logging.debug(f"The GitHub reference is: {ev.end}")
+        logging.debug(f"End is: {ev.end}")
         ev.location = e["pool"]
         #logging.debug(f"The GitHub reference is: {location}")
         master.events.add(ev)
