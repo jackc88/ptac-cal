@@ -74,15 +74,15 @@ def build():
                 logging.debug(f"PASS: start: {ev.begin} end: {ev.end}")
                 #return ev.begin
                 #pass
-                
-            else:
+            elif ev.end < ev.begin:
                 logging.debug(f"ERROR: start: {ev.begin} end: {ev.end}")
                 adj_ev.begin = ev.begin - timedelta(hours=12)
                 logging.debug(f"Adj -12 hrs: {adj_ev.begin}")
                 ev.begin = adj_ev.begin
                 logging.debug(f"Adj -12 hrs: {ev.begin}")
                 return adj_ev.begin
-                
+            else:
+                logging.debug(f"ERROR: start: {ev.begin} end: {ev.end}")
                 
             master.events.add(ev)
             g = e["group"]
