@@ -16,20 +16,20 @@ def build():
     swimmers_cal = {}
 
     for e in events:
-        logging.debug(f"The GitHub reference is: {e}")
         ev = Event()
+        logging.debug(f"The GitHub reference is: {ev}")
         if e["type"] == "practice":
-            logging.debug(f"The GitHub reference is: {type}")
+            #logging.debug(f"The GitHub reference is: {type}")
             ev.name = f"{e['group']} Practice"
             #logging.debug(f"The GitHub reference is: {group}")
         #else:
             #ev.name = e.get("name","Swim Meet")
         ev.begin = e["start"]
-        logging.debug(f"The GitHub reference is: {start}")
+        #logging.debug(f"The GitHub reference is: {start}")
         ev.end = e["end"]
-        logging.debug(f"The GitHub reference is: {end}")
+        #logging.debug(f"The GitHub reference is: {end}")
         ev.location = e["pool"]
-        logging.debug(f"The GitHub reference is: {location}")
+        #logging.debug(f"The GitHub reference is: {location}")
         master.events.add(ev)
         g = e["group"]
         if g not in groups:
