@@ -63,8 +63,11 @@ def parse():
         if t and current_group and current_date:
             # Convert tuple to a list so it's mutable
             start,end,ampm=t.groups()
-            start_dt = datetime.strptime(start_str, "%H:%M")
-            end_dt = datetime.strptime(end_str, "%H:%M")
+            #start_dt = datetime.strptime(start_str, "%H:%M")
+            #end_dt = datetime.strptime(end_str, "%H:%M")
+            fmt = "%I:%M" 
+            start_dt = datetime.strptime(start, fmt)
+            end_dt = datetime.strptime(end, fmt)
             if end_dt > start_dt:
                 start_dt -= timedelta(hours=12)
                 # 3. Pass the adjusted time back to 'start' as a string
