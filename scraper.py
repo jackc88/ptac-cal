@@ -69,10 +69,10 @@ def parse():
             start_dt = datetime.strptime(start, fmt)
             end_dt = datetime.strptime(end, fmt)
             if end_dt > start_dt:
+                logging.debug(f"Adjusted start to: {start}")
                 start_dt -= timedelta(hours=12)
                 # 3. Pass the adjusted time back to 'start' as a string
                 start = start_dt.strftime(fmt)
-                logging.debug(f"Adjusted start to: {start}")
                 logging.debug(f"CHG: t: {t} g: {current_group} d: {current_date}")
             events.append({
                 "group":current_group,
