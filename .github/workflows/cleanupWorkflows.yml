@@ -1,0 +1,22 @@
+name: Delete Workflows
+on:
+  schedule:
+    - cron: "0 7 * * *"
+github.repository="jackc88/ptac-cal/"
+jobs:
+  delete-runs:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 7
+          keep_minimum_runs: 7
+          delete_run_by_conclusion_pattern: success
+
+#https://github.com/marketplace/actions/delete-workflow-runs
