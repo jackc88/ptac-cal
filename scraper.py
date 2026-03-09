@@ -100,12 +100,19 @@ def parse():
             if end_dt <= start_dt:
                 end_dt += timedelta(days=1)
     
+            #events.append({
+                #"group":current_group,
+                #"pool":current_pool,
+                #"start":parse_time(current_date,start,ampm),
+                #"end":parse_time(current_date,end,ampm),
+                #"type":"practice"
+            #})
             events.append({
-                "group":current_group,
-                "pool":current_pool,
-                "start":parse_time(current_date,start,ampm),
-                "end":parse_time(current_date,end,ampm),
-                "type":"practice"
+                "group": current_group,
+                "pool": current_pool,
+                "start": start_dt,
+                "end": end_dt,
+                "type": "practice"
             })
 
 
