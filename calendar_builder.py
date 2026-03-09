@@ -79,7 +79,8 @@ def build():
                 #adj_ev.begin = ev.begin - timedelta(hours=12)
                 #logging.debug(f"Adj -12 hrs: {adj_ev.begin}")
                 #ev.begin = adj_ev.begin
-                ev.begin -= timedelta(hours=12)
+                #ev.begin -= timedelta(hours=12)
+                ev.begin = ev.begin.shift(hours=-12)
                 logging.debug(f"Adj -12 hrs: {ev.begin}")
                 #return adj_ev.begin
                 return ev.begin
