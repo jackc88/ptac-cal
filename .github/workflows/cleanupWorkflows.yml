@@ -2,7 +2,6 @@ name: Delete Workflows
 on:
   schedule:
     - cron: "0 7 * * *"
-github.repository="jackc88/ptac-cal/"
 jobs:
   delete-runs:
     runs-on: ubuntu-latest
