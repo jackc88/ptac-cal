@@ -17,6 +17,6 @@ jobs:
           repository: ${{ github.repository }}
           #retain_days: 7
           keep_minimum_runs: 7
-          delete_run_by_conclusion_pattern: success
+          #delete_run_by_conclusion_pattern: success
 
 #https://github.com/marketplace/actions/delete-workflow-runs
