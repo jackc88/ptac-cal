@@ -23,7 +23,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run calendar builder
-        run: python ptac_sync.py
+        run: python ptac_sync.py --with-addresses
 
       - name: Commit updates
         run: |
