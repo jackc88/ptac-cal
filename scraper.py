@@ -81,20 +81,11 @@ def parse():
             #    logging.debug(f"CHG: t: {t} g: {current_group} d: {current_date}")
             start, start_ampm, end, end_ampm = t.groups()
 
-            # If only one AM/PM is provided (GoMotion common case)
-            if not start_ampm and end_ampm:
-                start_ampm = end_ampm
-            if not end_ampm and start_ampm:
-                end_ampm = start_ampm
+            # If AM/PM only appears once, apply it to both
+            ampm = start_ampm or end_ampm or "PM"
 
-            # Default fallback
-            if not start_ampm:
-                start_ampm = "PM"
-            if not end_ampm:
-                end_ampm = start_ampm
-
-            start_dt = parse_time(current_date, start, start_ampm)
-            end_dt = parse_time(current_date, end, end_ampm)
+            start_dt = parse_time(current_date, start, ampm)
+            end_dt = parse_time(current_date, end, ampm)
 
             # Handle overnight events
             if end_dt <= start_dt:
