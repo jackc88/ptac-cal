@@ -112,17 +112,17 @@ def build():
             continue
 
     # subscription feeds
-    (OUTPUT/"ptac_master.ics").write_text(str(master))
+    (OUTPUT/"ptac_master.ics").write_text(str(master.serialize))
     for g,c in groups.items():
-        (OUTPUT/f"ptac_{g.lower()}.ics").write_text(str(c))
+        (OUTPUT/f"ptac_{g.lower()}.ics").write_text(str(c.serialize))
 
     # import copies for iOS
-    (OUTPUT/"ptac_master_import.ics").write_text(str(master))
-    for g,c in groups.items():
-        (OUTPUT/f"ptac_{g.lower()}_import.ics").write_text(str(c))
+    #(OUTPUT/"ptac_master_import.ics").write_text(str(master))
+    #for g,c in groups.items():
+        #(OUTPUT/f"ptac_{g.lower()}_import.ics").write_text(str(c))
 
-    for s,c in swimmers_cal.items():
-        (OUTPUT/f"swimmer_{s}.ics").write_text(str(c))
+    #for s,c in swimmers_cal.items():
+        #(OUTPUT/f"swimmer_{s}.ics").write_text(str(c))
 
 if __name__=="__main__":
     build()
