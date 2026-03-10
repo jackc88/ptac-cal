@@ -112,9 +112,9 @@ def build():
             continue
 
     # subscription feeds
-    (OUTPUT/"ptac_master.ics").write_text(str(master.serialize))
+    (OUTPUT/"ptac_master.ics").write_text(str(master))
     for g,c in groups.items():
-        (OUTPUT/f"ptac_{g.lower()}.ics").write_text(str(c.serialize))
+        (OUTPUT/f"ptac_{g.lower()}.ics").write_text(str(c))
 
     # import copies for iOS
     #(OUTPUT/"ptac_master_import.ics").write_text(str(master))
