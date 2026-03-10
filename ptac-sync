@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""
+PTAC GoMotion Calendar to iCal – fixed debug scope, NameError, PM assumption
+"""
+
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime, time as dtime
+import re
+import uuid
+import time
+import argparse
+import sys
+from pathlib import Path
+
+
+def ical_escape(text: str) -> str:
+    return (
+        text
+        .replace('\\', '\\\\')
+        .replace(';', '\\;')
+        .replace(',', '\\,')
+        .replace('\r\n', '\\n')
+        .replace('\n', '\\n')
+        .replace('\r', '\\n')
+    )
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="PTAC GoMotion → iCal converter")
+    parser.add_argument('--interval', type=float, default=24.0, help='Sync interval in hours')
+    parser.add_argument('--output', type=str, default='output/ptac_calendar.ics', help='Output file')
+    parser.add_argument('--url', type=str,
+                        default='https://www.gomotionapp.com/team/njptac/page/calendar1/all-groups',
+                        help='Calendar URL')
+    parser.add_argument('--timed-only', '-t', action='store_true',
+                        help='Only include timed events')
+    parser.add_argument('--groups', '-g', nargs='*', default=[],
+                        help='Only include these groups (e.g. --groups AG3)')
+    parser.add_argument('--debug', action='store_true', default=False,
+                        help='Show debug output')
+    return parser.parse_args()
+
+
+def fetch_page(url):
+    try:
+        r = requests.get(url, timeout=15)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, 'html.parser')
+        text = soup.get_text(separator='\n', strip=True)
+        return text
+    except Exception as e:
+        print(f"Fetch failed: {e}", file=sys.stderr)
+        return ""
+
+def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> dtime:
+    tstr = tstr.strip().upper()
+    ampm_match = re.search(r'(AM|PM)', tstr, re.IGNORECASE)
+    clean = re.sub(r'(AM|PM)', '', tstr, re.IGNORECASE).strip()
+
+    try:
+        h_str, m_str = clean.split(':')
+        h = int(h_str)
+        m = int(m_str or '0')
+    except:
+        if debug:
+            print(f"[DEBUG] Time split failed: '{tstr}'")
+        raise ValueError(f"Invalid time format: '{tstr}'")
+
+    ampm = ''
+    if ampm_match:
+        ampm = ampm_match.group(0).upper()
+        if ampm == 'PM' and h < 12:
+            h += 12
+        elif ampm == 'AM' and h == 12:
+            h = 0
+    else:
+        # Use end time's AM/PM hint first
+        if end_ampm_hint == 'PM' and h < 12:
+            h += 12
+            ampm = 'PM (from end hint)'
+        elif end_ampm_hint == 'AM' and h == 12:
+            h = 0
+            ampm = 'AM (from end hint)'
+        else:
+            # Only assume PM for typical evening start hours (4–10)
+            # NEVER assume PM for 11, 12, 1–3 (likely midday/AM for weekend)
+            if 4 <= h <= 10:
+                h += 12
+                ampm = 'PM (assumed)'
+            else:
+                ampm = 'AM/midday (assumed)'
+
+    if debug:
+        print(f"[DEBUG] Parsed '{tstr}' → {h:02d}:{m:02d} ({ampm})")
+
+    return dtime(h % 24, m)
+
+def parse_events(raw_text: str, timed_only: bool = False, allowed_groups: set = None, debug: bool = False):
+    if not raw_text:
+        if debug:
+            print("[DEBUG] Empty raw_text")
+        return []
+
+    if allowed_groups is None:
+        allowed_groups = set()
+
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    if debug:
+        print(f"[DEBUG] Total lines: {len(lines)}")
+        print("[DEBUG] First 10 lines:", lines[:10])
+
+    events = []
+    year = datetime.today().year
+    current_date = None
+    current_location = ""
+    current_notes = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if debug:
+            print(f"[DEBUG] Line {i+1}: {repr(line)}")
+
+        date_m = re.match(r'^(\*?\*?)?(\d{1,2})/(\d{1,2})(\*?\*?)?$', line)
+        if date_m:
+            if current_date:
+                if debug:
+                    print(f"[DEBUG] Flushing previous date {current_date}")
+                flush_day(events, year, current_date, current_location, current_notes,
+                          timed_only, allowed_groups, debug)
+            month, day = int(date_m.group(2)), int(date_m.group(3))
+            current_date = (month, day)
+            if debug:
+                print(f"[DEBUG] New date: {month}/{day}")
+            current_location = ""
+            current_notes = []
+            i += 1
+            continue
+
+        if not current_date:
+            i += 1
+            continue
+
+        loc_m = re.match(r'^[A-Z][a-zA-Z& ]{2,}$', line)
+        if loc_m and not re.search(r'\d', line):
+            if current_notes:
+                if debug:
+                    print("[DEBUG] Flushing notes before new location")
+                flush_day(events, year, current_date, current_location, current_notes,
+                          timed_only, allowed_groups, debug)
+            current_location = loc_m.group(0).strip()
+            if debug:
+                print(f"[DEBUG] New location: {current_location}")
+            current_notes = []
+            i += 1
+            continue
+
+        workout_m = re.match(r'^([A-Z0-9]+)\s+(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*([AP]M)?$', line)
+        if workout_m:
+            group = workout_m.group(1).upper()
+            start_str = workout_m.group(2)
+            end_str = workout_m.group(3)
+            ampm = workout_m.group(4) or ''
+
+            if debug:
+                print(f"[DEBUG] Workout match: {group} {start_str} - {end_str} {ampm}")
+
+            if allowed_groups and group not in allowed_groups:
+                if debug:
+                    print(f"[DEBUG] Skipped (group filter): {group}")
+                i += 1
+                continue
+
+            try:
+                # Parse times
+                start_t = parse_time_str(start_str, end_ampm_hint=ampm, debug=debug)
+                end_t = parse_time_str(end_str, end_ampm_hint=ampm, debug=debug)
+
+                start_dt = datetime(year, current_date[0], current_date[1],
+                                    start_t.hour, start_t.minute)
+                end_dt = datetime(year, current_date[0], current_date[1],
+                                  end_t.hour, end_t.minute)
+
+                # Critical fix: if end < start, assume start was meant to be AM
+                if end_dt < start_dt:
+                    if debug:
+                        print(f"[DEBUG] Detected invalid order (end < start) – forcing start to AM")
+                    start_dt = start_dt.replace(hour=start_dt.hour - 12)
+                    if start_dt.hour < 0:
+                        start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
+
+                # Re-calculate duration after correction
+                duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                if duration_hours > 12 or duration_hours < 0:
+                    if debug:
+                        print(f"[DEBUG] Still invalid duration ({duration_hours:.1f} h) after correction")
+                    # Optional: skip or log only – but usually the AM fix resolves it
+
+                if debug:
+                    print(f"[DEBUG] Final event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location or '(no location)'} (duration: {duration_hours:.1f} h)")
+
+                events.append({
+                    'summary': f"{group} Workout",
+                    'start': start_dt,
+                    'end': end_dt,
+                    'location': current_location,
+                    'description': "\n".join(current_notes)
+                })
+
+                current_notes = []  # Clear to prevent carry-over
+            except Exception as e:
+                if debug:
+                    print(f"[DEBUG] Parse error on workout '{line}': {e}")
+                if not timed_only:
+                    current_notes.append(line)
+            i += 1
+            continue
+
+        if debug:
+            print(f"[DEBUG] Note line: {line}")
+        current_notes.append(line)
+        i += 1
+
+    if current_date:
+        if debug:
+            print(f"[DEBUG] Final flush for {current_date}")
+        flush_day(events, year, current_date, current_location, current_notes,
+                  timed_only, allowed_groups, debug)
+
+    if debug:
+        print(f"[DEBUG] Parsing done – {len(events)} events")
+
+    return events
+
+
+def flush_day(events, year, date_tuple, location, notes, timed_only, allowed_groups, debug):
+    if timed_only or not notes:
+        if debug:
+            print("[DEBUG] flush_day skipped")
+        return
+
+    month, day = date_tuple
+    summary = " → ".join(notes[:4]) if len(notes) > 4 else " → ".join(notes)
+    if len(summary) > 75:
+        summary = summary[:72] + "..."
+
+    if debug:
+        print(f"[DEBUG] All-day event: {summary} @ {location or '(no location)'}")
+
+    events.append({
+        'summary': summary or "Special Event",
+        'start': datetime(year, month, day, 0, 0),
+        'end': datetime(year, month, day, 23, 59, 59),
+        'location': location,
+        'description': "\n".join(notes)
+    })
+
+
+def generate_ics(events, filename):
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//PTAC Calendar Sync//EN",
+        "CALSCALE:GREGORIAN",
+    ]
+
+    for ev in events:
+        uid = str(uuid.uuid4())
+        desc = ical_escape(ev['description'])
+        loc = ical_escape(ev.get('location', ''))
+        summ = ical_escape(ev['summary'])
+
+        lines.extend([
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTAMP:{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
+            f"DTSTART:{ev['start'].strftime('%Y%m%dT%H%M%S')}",
+            f"DTEND:{ev['end'].strftime('%Y%m%dT%H%M%S')}",
+            f"SUMMARY:{summ}",
+            f"LOCATION:{loc}",
+            f"DESCRIPTION:{desc}",
+            "END:VEVENT",
+        ])
+
+    lines.append("END:VCALENDAR")
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
+
+    print(f"Wrote {len(events)} events to {filename}")
+
+
+def main():
+    args = parse_arguments()
+    interval_sec = max(300, int(args.interval * 3600))
+    allowed = {g.upper() for g in args.groups} if args.groups else None
+
+    print(f"Starting PTAC sync → {args.output}")
+    print(f"Interval: {args.interval:.1f} h")
+    print(f"Timed-only: {'ON' if args.timed_only else 'OFF'}")
+    print(f"Groups filter: {', '.join(sorted(allowed)) if allowed else 'ALL'}")
+    print(f"Debug: {'ON' if args.debug else 'OFF'}")
+    print("Ctrl+C to stop\n")
+    OUTPUT = Path("output")
+    OUTPUT.mkdir(exist_ok=True)
+
+
+    def generate_all_variants():
+        groups = ['AG1', 'AG2', 'AG3', 'SR', 'JR', 'VAR']
+        locations = ['Denunzio', 'WAC', 'MCCC', 'PMS', 'Princeton MS', 'Waterworks']
+
+        print("Generating all variants...")
+
+        # Full unfiltered
+        text = fetch_page(args.url)
+        events = parse_events(text, timed_only=False, allowed_groups=None, debug=args.debug)
+        #generate_ics(events, 'all.ics')
+        #print("Created: all.ics")
+
+        # Per group
+        for group in groups:
+            events = parse_events(text, timed_only=True, allowed_groups={group}, debug=args.debug)
+            filename = f"output/{group}.ics"
+            generate_ics(events, filename)
+            print(f"Created: {filename}")
+
+        # Per location (requires adding location filter - see next section)
+        # (add code here once location filter is implemented)
+
+        print("All variants generated.")
+
+
+    while True:
+        try:
+            text = fetch_page(args.url)
+            events = parse_events(text,
+                                  timed_only=args.timed_only,
+                                  allowed_groups=allowed,
+                                  debug=args.debug)
+            if events:
+                generate_ics(events, args.output)
+            else:
+                print("No matching events found")
+        except KeyboardInterrupt:
+            print("\nStopped.")
+            break
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+
+        generate_all_variants()
+        #time.sleep(interval_sec)
+        return 0
+
+
+if __name__ == '__main__':
+    main()
+#if __generate_all_variants__ == '__generate_all_variants__':
+    #generate_all_variants()
+
