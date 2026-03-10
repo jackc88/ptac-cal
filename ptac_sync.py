@@ -13,6 +13,7 @@ import re
 import uuid
 import argparse
 import sys
+from pathlib import Path
 
 # ==================== CONFIG ====================
 ADDRESS_MAP = {
@@ -220,16 +221,19 @@ def main():
     print("Fetching latest PTAC calendar...")
     raw_text = fetch_page()
 
+    OUTPUT = Path("output")
+    OUTPUT.mkdir(exist_ok=True)
+
     print("Generating files...")
 
     # 1. Full unfiltered
     events = parse_events(raw_text, debug=args.debug)
-    generate_ics(events, 'all.ics', with_addresses=args.with_addresses)
+    generate_ics(events, 'output/all.ics', with_addresses=args.with_addresses)
 
     # 2. One file per group
     for group in ["AG1", "AG2", "AG3", "SR", "JR", "VAR"]:
         group_events = parse_events(raw_text, allowed_groups={group}, debug=args.debug)
-        filename = f"group-{group}.ics"
+        filename = f"output/{group}.ics"
         generate_ics(group_events, filename, with_addresses=args.with_addresses)
 
     print("\nAll files generated successfully!")
