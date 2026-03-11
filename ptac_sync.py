@@ -2,8 +2,9 @@
 """
 PTAC Calendar Generator
 - Creates all.ics (full unfiltered)
-- Creates one .ics per group: group-AG1.ics, group-AG2.ics, etc.
-- Optional --with-addresses: converts pool names to full street addresses for GPS/maps
+- Creates one .ics per group (AG1.ics, AG2.ics, etc.)
+- Optional --with-addresses: converts locations to full street addresses for GPS/maps
+- Adds X-WR-CALNAME for proper calendar display
 """
 
 import requests
@@ -17,7 +18,7 @@ from pathlib import Path
 
 # ==================== CONFIG ====================
 ADDRESS_MAP = {
-    "Denunzio": "DeNunzio Pool, stadium Dr, Princeton, NJ 08540",
+    "Denunzio": "DeNunzio Pool, 1000 University Place, Princeton, NJ 08544",
     "WAC": "Windsor Athletic Club, 70 Palmer Drive, East Windsor, NJ 08520",
     "MCCC": "Mercer County Community College Pool, 1200 Old Trenton Road, West Windsor, NJ 08550",
     "Princeton MS": "Princeton Middle School Pool, 217 Walnut Lane, Princeton, NJ 08540",
@@ -76,7 +77,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
     while i < len(lines):
         line = lines[i]
 
-        # Date
         date_m = re.match(r'^(\*?\*?)?(\d{1,2})/(\d{1,2})(\*?\*?)?$', line)
         if date_m:
             if current_date:
@@ -92,7 +92,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
             i += 1
             continue
 
-        # Location
         loc_m = re.match(r'^[A-Z][a-zA-Z& ]{2,}$', line)
         if loc_m and not re.search(r'\d', line):
             if current_notes:
@@ -102,7 +101,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
             i += 1
             continue
 
-        # Workout line
         workout_m = re.match(r'^([A-Z0-9]+)\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?$', line)
         if workout_m:
             group = workout_m.group(1).upper()
@@ -121,7 +119,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
                 start_dt = datetime(year, current_date[0], current_date[1], start_t.hour, start_t.minute)
                 end_dt = datetime(year, current_date[0], current_date[1], end_t.hour, end_t.minute)
 
-                # Fix invalid order (end before start)
                 if end_dt < start_dt:
                     start_dt = start_dt.replace(hour=start_dt.hour - 12)
                     if start_dt.hour < 0:
@@ -182,10 +179,11 @@ def flush_day(events, year, date_tuple, location, notes):
     })
 
 
-def generate_ics(events, filename, with_addresses: bool = False):
+def generate_ics(events, filename, calendar_name: str, with_addresses: bool = False):
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
+        f"X-WR-CALNAME:{calendar_name}",          # ← Calendar name added here
         "PRODID:-//PTAC Calendar Generator//EN",
         "CALSCALE:GREGORIAN",
     ]
@@ -212,7 +210,7 @@ def generate_ics(events, filename, with_addresses: bool = False):
 
     with open(filename, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines) + '\n')
-    print(f"Created: {filename} ({len(events)} events)")
+    print(f"Created: {filename} ({len(events)} events) → Calendar name: {calendar_name}")
 
 
 def main():
@@ -224,22 +222,23 @@ def main():
     OUTPUT = Path("output")
     OUTPUT.mkdir(exist_ok=True)
 
-    print("Generating files...")
+    print("Generating files...\n")
 
     # 1. Full unfiltered
     events = parse_events(raw_text, debug=args.debug)
-    generate_ics(events, 'output/all.ics', with_addresses=args.with_addresses)
+    generate_ics(events, OUTPUT / "all.ics", "PTAC All Workouts", args.with_addresses)
 
     # 2. One file per group
-    for group in ["AG1", "AG2", "AG3", "SR", "JR", "VAR"]:
+    for group in GROUPS:
         group_events = parse_events(raw_text, allowed_groups={group}, debug=args.debug)
-        filename = f"output/{group}.ics"
-        generate_ics(group_events, filename, with_addresses=args.with_addresses)
+        filename = OUTPUT / f"{group}.ics"
+        calendar_name = f"PTAC {group} Workouts"
+        generate_ics(group_events, filename, calendar_name, args.with_addresses)
 
-    print("\nAll files generated successfully!")
-    print("Files created:")
+    print("\n✅ All files generated successfully!")
+    print("📁 Location: ./output/")
     print("   • all.ics")
-    print("   • group-AG1.ics, group-AG2.ics, group-AG3.ics, group-SR.ics, group-JR.ics, group-VAR.ics")
+    print("   • AG1.ics, AG2.ics, AG3.ics, SR.ics, JR.ics, VAR.ics")
 
 
 if __name__ == '__main__':
