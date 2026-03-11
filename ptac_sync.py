@@ -3,8 +3,9 @@
 PTAC Calendar Generator
 - Creates all.ics (full unfiltered)
 - Creates one .ics per group (AG1.ics, AG2.ics, etc.)
-- Optional --with-addresses: converts locations to full street addresses for GPS/maps
-- Adds X-WR-CALNAME for proper calendar display
+- Past events are excluded by default
+- X-WR-CALNAME is set for each file
+- Optional --with-addresses for GPS-friendly locations
 """
 
 import requests
@@ -43,6 +44,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="PTAC Calendar Generator")
     parser.add_argument('--with-addresses', action='store_true',
                         help='Convert locations to full street addresses for GPS/maps')
+    parser.add_argument('--future-only', action='store_true', default=True,
+                        help='Exclude past events (default: True)')
     parser.add_argument('--debug', action='store_true', help='Show debug output')
     return parser.parse_args()
 
@@ -180,10 +183,14 @@ def flush_day(events, year, date_tuple, location, notes):
 
 
 def generate_ics(events, filename, calendar_name: str, with_addresses: bool = False):
+    # Filter past events
+    now = datetime.now()
+    events = [ev for ev in events if ev['end'] >= now]
+
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        f"X-WR-CALNAME:{calendar_name}",          # ← Calendar name added here
+        f"X-WR-CALNAME:{calendar_name}",   # ← Calendar name for proper display
         "PRODID:-//PTAC Calendar Generator//EN",
         "CALSCALE:GREGORIAN",
     ]
@@ -210,7 +217,7 @@ def generate_ics(events, filename, calendar_name: str, with_addresses: bool = Fa
 
     with open(filename, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines) + '\n')
-    print(f"Created: {filename} ({len(events)} events) → Calendar name: {calendar_name}")
+    print(f"Created: {filename} ({len(events)} future events) → {calendar_name}")
 
 
 def main():
