@@ -17,7 +17,7 @@ from pathlib import Path
 
 # ==================== CONFIG ====================
 ADDRESS_MAP = {
-    "Denunzio": "DeNunzio Pool, 148 Fitzrandolph Road, Princeton, NJ 08540",
+    "Denunzio": "DeNunzio Pool, stadium Dr, Princeton, NJ 08540",
     "WAC": "Windsor Athletic Club, 70 Palmer Drive, East Windsor, NJ 08520",
     "MCCC": "Mercer County Community College Pool, 1200 Old Trenton Road, West Windsor, NJ 08550",
     "Princeton MS": "Princeton Middle School Pool, 217 Walnut Lane, Princeton, NJ 08540",
