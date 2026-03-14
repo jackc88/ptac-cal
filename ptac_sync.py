@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – drop-in replacement (no hang, fixed times, proper names)
-Generates all.ics + one file per group
+PTAC Calendar Generator – fixed Denuzio address + utcnow deprecation warning
 """
 
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, time as dtime
+from datetime import datetime, time as dtime, timezone
 import re
 import uuid
 import argparse
@@ -15,7 +14,7 @@ from pathlib import Path
 
 # ==================== CONFIG ====================
 ADDRESS_MAP = {
-    "Denunzio": "DeNunzio Pool, 1000 University Place, Princeton, NJ 08544",
+    "Denunzio": "Stadium Dr, Princeton, NJ 08540",
     "WAC": "Windsor Athletic Club, 70 Palmer Drive, East Windsor, NJ 08520",
     "MCCC": "Mercer County Community College Pool, 1200 Old Trenton Road, West Windsor, NJ 08550",
     "Princeton MS": "Princeton Middle School Pool, 217 Walnut Lane, Princeton, NJ 08540",
@@ -55,49 +54,6 @@ def fetch_page():
     except Exception as e:
         print(f"Fetch failed: {e}")
         sys.exit(1)
-
-
-def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> dtime:
-    tstr = tstr.strip().upper()
-    ampm_match = re.search(r'(AM|PM)', tstr)
-    clean = re.sub(r'(AM|PM)', '', tstr, re.IGNORECASE).strip()
-
-    try:
-        h_str, m_str = clean.split(':')
-        h = int(h_str)
-        m = int(m_str or '0')
-    except Exception as e:
-        if debug:
-            print(f"[DEBUG] Time split failed: '{tstr}' → {e}")
-        raise
-
-    ampm = ''
-    if ampm_match:
-        ampm = ampm_match.group(0).upper()
-        if ampm == 'PM' and h < 12:
-            h += 12
-        elif ampm == 'AM' and h == 12:
-            h = 0
-    else:
-        # Use end hint only if safe (no PM for 12 or 11)
-        if end_ampm_hint == 'PM' and h < 11:
-            h += 12
-            ampm = 'PM (from end hint)'
-        elif end_ampm_hint == 'AM' and h == 12:
-            h = 0
-            ampm = 'AM (from end hint)'
-        else:
-            # Only assume PM for typical evening (4–10)
-            if 4 <= h <= 10:
-                h += 12
-                ampm = 'PM (assumed)'
-            else:
-                ampm = 'AM/midday'
-
-    if debug:
-        print(f"[DEBUG] Parsed '{tstr}' → {h:02d}:{m:02d} ({ampm})")
-
-    return dtime(h % 24, m)
 
 
 def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False):
@@ -162,10 +118,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
                 end_dt = datetime(year, current_date[0], current_date[1],
                                   end_t.hour, end_t.minute)
 
-                # Fix invalid time order (end before start)
                 if end_dt < start_dt:
-                    if debug:
-                        print(f"[DEBUG] Invalid order (end < start) – forcing start to AM for {group}")
                     start_dt = start_dt.replace(hour=start_dt.hour - 12)
                     if start_dt.hour < 0:
                         start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
@@ -195,6 +148,47 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
     if current_date:
         flush_day(events, year, current_date, current_location, current_notes)
     return events
+
+
+def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> dtime:
+    tstr = tstr.strip().upper()
+    ampm_match = re.search(r'(AM|PM)', tstr)
+    clean = re.sub(r'(AM|PM)', '', tstr, re.IGNORECASE).strip()
+
+    try:
+        h_str, m_str = clean.split(':')
+        h = int(h_str)
+        m = int(m_str or '0')
+    except:
+        if debug:
+            print(f"[DEBUG] Time split failed: '{tstr}'")
+        raise
+
+    ampm = ''
+    if ampm_match:
+        ampm = ampm_match.group(0).upper()
+        if ampm == 'PM' and h < 12:
+            h += 12
+        elif ampm == 'AM' and h == 12:
+            h = 0
+    else:
+        if end_ampm_hint == 'PM' and h < 11:  # only apply to <11 to avoid 11/12 PM
+            h += 12
+            ampm = 'PM (from end hint)'
+        elif end_ampm_hint == 'AM' and h == 12:
+            h = 0
+            ampm = 'AM (from end hint)'
+        else:
+            if 4 <= h <= 10:
+                h += 12
+                ampm = 'PM (assumed)'
+            else:
+                ampm = 'AM/midday'
+
+    if debug:
+        print(f"[DEBUG] Parsed '{tstr}' → {h:02d}:{m:02d} ({ampm})")
+
+    return dtime(h % 24, m)
 
 
 def flush_day(events, year, date_tuple, location, notes):
@@ -232,7 +226,7 @@ def generate_ics(events, filename, calendar_name: str, with_addresses: bool = Fa
         lines.extend([
             "BEGIN:VEVENT",
             f"UID:{uid}",
-            f"DTSTAMP:{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}",
+            f"DTSTAMP:{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
             f"DTSTART:{ev['start'].strftime('%Y%m%dT%H%M%S')}",
             f"DTEND:{ev['end'].strftime('%Y%m%dT%H%M%S')}",
             f"SUMMARY:{ical_escape(ev['summary'])}",
