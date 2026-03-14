@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – fixed 11:45 AM/PM issue for March 14 AG3
+PTAC Calendar Generator – drop-in replacement (no hang, fixed times, proper names)
+Generates all.ics + one file per group
 """
 
 import requests
@@ -12,8 +13,9 @@ import argparse
 import sys
 from pathlib import Path
 
+# ==================== CONFIG ====================
 ADDRESS_MAP = {
-    "Denunzio": "DeNunzio Pool, Stadium Dr, Princeton, NJ 08540",
+    "Denunzio": "DeNunzio Pool, 1000 University Place, Princeton, NJ 08544",
     "WAC": "Windsor Athletic Club, 70 Palmer Drive, East Windsor, NJ 08520",
     "MCCC": "Mercer County Community College Pool, 1200 Old Trenton Road, West Windsor, NJ 08550",
     "Princeton MS": "Princeton Middle School Pool, 217 Walnut Lane, Princeton, NJ 08540",
@@ -23,6 +25,7 @@ ADDRESS_MAP = {
 
 GROUPS = ["AG1", "AG2", "AG3", "SR", "JR", "VAR"]
 
+# ===============================================
 
 def ical_escape(text: str) -> str:
     return (
@@ -36,8 +39,8 @@ def ical_escape(text: str) -> str:
 def parse_arguments():
     parser = argparse.ArgumentParser(description="PTAC Calendar Generator")
     parser.add_argument('--with-addresses', action='store_true',
-                        help='Convert locations to full street addresses')
-    parser.add_argument('--debug', action='store_true', default=True,
+                        help='Convert locations to full street addresses for GPS/maps')
+    parser.add_argument('--debug', action='store_true', default=False,
                         help='Show debug output')
     return parser.parse_args()
 
@@ -63,9 +66,9 @@ def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> d
         h_str, m_str = clean.split(':')
         h = int(h_str)
         m = int(m_str or '0')
-    except:
+    except Exception as e:
         if debug:
-            print(f"[DEBUG] Time split failed: '{tstr}'")
+            print(f"[DEBUG] Time split failed: '{tstr}' → {e}")
         raise
 
     ampm = ''
@@ -76,15 +79,15 @@ def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> d
         elif ampm == 'AM' and h == 12:
             h = 0
     else:
-        # Use end hint ONLY if it doesn't break 12:xx midday
-        if end_ampm_hint == 'PM' and h <= 12 and h != 12:
+        # Use end hint only if safe (no PM for 12 or 11)
+        if end_ampm_hint == 'PM' and h < 11:
             h += 12
             ampm = 'PM (from end hint)'
         elif end_ampm_hint == 'AM' and h == 12:
             h = 0
             ampm = 'AM (from end hint)'
         else:
-            # Only assume PM for evening hours (4-10)
+            # Only assume PM for typical evening (4–10)
             if 4 <= h <= 10:
                 h += 12
                 ampm = 'PM (assumed)'
@@ -146,36 +149,48 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
             end_str = workout_m.group(3)
             ampm = workout_m.group(4) or ''
 
-            start_t = parse_time_str(start_str, end_ampm_hint=ampm, debug=debug)
-            end_t = parse_time_str(end_str, end_ampm_hint=ampm, debug=debug)
+            if allowed_groups and group not in allowed_groups:
+                i += 1
+                continue
 
-            start_dt = datetime(year, current_date[0], current_date[1],
-                                start_t.hour, start_t.minute)
-            end_dt = datetime(year, current_date[0], current_date[1],
-                              end_t.hour, end_t.minute)
+            try:
+                start_t = parse_time_str(start_str, end_ampm_hint=ampm, debug=debug)
+                end_t = parse_time_str(end_str, end_ampm_hint=ampm, debug=debug)
 
-            # Critical fix: if end < start or duration >12 h, force start to AM
-            duration_hours = (end_dt - start_dt).total_seconds() / 3600
-            if duration_hours > 12 or duration_hours < 0:
-                if debug:
-                    print(f"[DEBUG] Invalid duration ({duration_hours:.1f} h) – forcing start to AM")
-                start_dt = start_dt.replace(hour=start_dt.hour - 12)
-                if start_dt.hour < 0:
-                    start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
+                start_dt = datetime(year, current_date[0], current_date[1],
+                                    start_t.hour, start_t.minute)
+                end_dt = datetime(year, current_date[0], current_date[1],
+                                  end_t.hour, end_t.minute)
+
+                # Fix invalid time order (end before start)
+                if end_dt < start_dt:
+                    if debug:
+                        print(f"[DEBUG] Invalid order (end < start) – forcing start to AM for {group}")
+                    start_dt = start_dt.replace(hour=start_dt.hour - 12)
+                    if start_dt.hour < 0:
+                        start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
+
                 duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                if debug:
+                    print(f"[DEBUG] Final event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location} (duration: {duration_hours:.1f} h)")
 
-            if debug:
-                print(f"[DEBUG] Final event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location} (duration: {duration_hours:.1f} h)")
+                events.append({
+                    'summary': f"{group} Workout",
+                    'start': start_dt,
+                    'end': end_dt,
+                    'location': current_location,
+                    'description': "\n".join(current_notes)
+                })
+                current_notes = []
+            except Exception as e:
+                if debug:
+                    print(f"[DEBUG] Parse error on '{line}': {e}")
+                current_notes.append(line)
+            i += 1
+            continue
 
-            events.append({
-                'summary': f"{group} Workout",
-                'start': start_dt,
-                'end': end_dt,
-                'location': current_location,
-                'description': "\n".join(current_notes)
-            })
-
-            current_notes = []  # Clear notes
+        current_notes.append(line)
+        i += 1
 
     if current_date:
         flush_day(events, year, current_date, current_location, current_notes)
@@ -198,7 +213,7 @@ def flush_day(events, year, date_tuple, location, notes):
 
 def generate_ics(events, filename, calendar_name: str, with_addresses: bool = False):
     now = datetime.now()
-    events = [ev for ev in events if ev['end'] >= now]  # exclude past
+    events = [ev for ev in events if ev['start'] >= now]  # exclude past
 
     lines = [
         "BEGIN:VCALENDAR",
@@ -230,13 +245,13 @@ def generate_ics(events, filename, calendar_name: str, with_addresses: bool = Fa
 
     with open(filename, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines) + '\n')
-    print(f"Created: {filename} ({len(events)} events) → {calendar_name}")
+    print(f"Created: {filename} ({len(events)} future events) → {calendar_name}")
 
 
 def main():
     args = parse_arguments()
 
-    print("Fetching PTAC calendar...")
+    print("Fetching latest PTAC calendar...")
     raw_text = fetch_page()
 
     OUTPUT = Path("output")
