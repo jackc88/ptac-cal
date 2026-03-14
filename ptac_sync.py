@@ -68,6 +68,7 @@ def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> d
             print(f"[DEBUG] Time split failed: '{tstr}'")
         raise
 
+    ampm = ''
     if ampm_match:
         ampm = ampm_match.group(0).upper()
         if ampm == 'PM' and h < 12:
@@ -75,15 +76,15 @@ def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> d
         elif ampm == 'AM' and h == 12:
             h = 0
     else:
-        # Use end time hint first (strongest)
-        if end_ampm_hint == 'PM' and h <= 12:
+        # Use end hint ONLY if it doesn't break 12:xx midday
+        if end_ampm_hint == 'PM' and h <= 12 and h != 12:
             h += 12
             ampm = 'PM (from end hint)'
         elif end_ampm_hint == 'AM' and h == 12:
             h = 0
             ampm = 'AM (from end hint)'
         else:
-            # Only assume PM for 4–10
+            # Only assume PM for evening hours (4-10)
             if 4 <= h <= 10:
                 h += 12
                 ampm = 'PM (assumed)'
@@ -145,48 +146,36 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
             end_str = workout_m.group(3)
             ampm = workout_m.group(4) or ''
 
-            if allowed_groups and group not in allowed_groups:
-                i += 1
-                continue
+            start_t = parse_time_str(start_str, end_ampm_hint=ampm, debug=debug)
+            end_t = parse_time_str(end_str, end_ampm_hint=ampm, debug=debug)
 
-            try:
-                start_t = parse_time_str(start_str, end_ampm_hint=ampm, debug=debug)
-                end_t = parse_time_str(end_str, end_ampm_hint=ampm, debug=debug)
+            start_dt = datetime(year, current_date[0], current_date[1],
+                                start_t.hour, start_t.minute)
+            end_dt = datetime(year, current_date[0], current_date[1],
+                              end_t.hour, end_t.minute)
 
-                start_dt = datetime(year, current_date[0], current_date[1],
-                                    start_t.hour, start_t.minute)
-                end_dt = datetime(year, current_date[0], current_date[1],
-                                  end_t.hour, end_t.minute)
-
-                # FIX: if end < start, force start to AM (corrects PM mis-assumption)
-                if end_dt < start_dt:
-                    if debug:
-                        print(f"[DEBUG] Invalid order (end < start) – forcing start to AM for {group}")
-                    start_dt = start_dt.replace(hour=start_dt.hour - 12)
-                    if start_dt.hour < 0:
-                        start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
-
+            # Critical fix: if end < start or duration >12 h, force start to AM
+            duration_hours = (end_dt - start_dt).total_seconds() / 3600
+            if duration_hours > 12 or duration_hours < 0:
+                if debug:
+                    print(f"[DEBUG] Invalid duration ({duration_hours:.1f} h) – forcing start to AM")
+                start_dt = start_dt.replace(hour=start_dt.hour - 12)
+                if start_dt.hour < 0:
+                    start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
                 duration_hours = (end_dt - start_dt).total_seconds() / 3600
-                if debug:
-                    print(f"[DEBUG] Final event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location} (duration: {duration_hours:.1f} h)")
 
-                events.append({
-                    'summary': f"{group} Workout",
-                    'start': start_dt,
-                    'end': end_dt,
-                    'location': current_location,
-                    'description': "\n".join(current_notes)
-                })
-                current_notes = []
-            except Exception as e:
-                if debug:
-                    print(f"[DEBUG] Parse error on '{line}': {e}")
-                current_notes.append(line)
-            i += 1
-            continue
+            if debug:
+                print(f"[DEBUG] Final event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location} (duration: {duration_hours:.1f} h)")
 
-        current_notes.append(line)
-        i += 1
+            events.append({
+                'summary': f"{group} Workout",
+                'start': start_dt,
+                'end': end_dt,
+                'location': current_location,
+                'description': "\n".join(current_notes)
+            })
+
+            current_notes = []  # Clear notes
 
     if current_date:
         flush_day(events, year, current_date, current_location, current_notes)
