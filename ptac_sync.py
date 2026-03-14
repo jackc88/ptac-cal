@@ -148,22 +148,38 @@ def parse_events(raw_text: str, allowed_groups: set = None, debug: bool = False)
     return events
 
 
-def parse_time_str(tstr: str, end_ampm_hint: str = '') -> dtime:
+def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> dtime:
     tstr = tstr.strip().upper()
     ampm_match = re.search(r'(AM|PM)', tstr)
-    clean = re.sub(r'(AM|PM)', '', tstr).strip()
+    clean = re.sub(r'(AM|PM)', '', tstr, re.IGNORECASE).strip()
 
     h, m = map(int, clean.split(':'))
+    ampm = ''
     if ampm_match:
         ampm = ampm_match.group(0).upper()
         if ampm == 'PM' and h < 12:
             h += 12
         elif ampm == 'AM' and h == 12:
             h = 0
-    elif end_ampm_hint == 'PM' and h <= 12:
-        h += 12
-    elif 4 <= h <= 10:
-        h += 12
+    else:
+        # Use end time hint first
+        if end_ampm_hint == 'PM' and h <= 12:
+            h += 12
+            ampm = 'PM (from end)'
+        elif end_ampm_hint == 'AM' and h == 12:
+            h = 0
+            ampm = 'AM (from end)'
+        else:
+            # Only assume PM for 4–10
+            # NEVER assume PM for 11 or 12
+            if 4 <= h <= 10:
+                h += 12
+                ampm = 'PM (assumed)'
+            else:
+                ampm = 'AM/midday'
+
+    if debug:
+        print(f"[DEBUG] Parsed '{tstr}' → {h:02d}:{m:02d} ({ampm})")
 
     return dtime(h % 24, m)
 
