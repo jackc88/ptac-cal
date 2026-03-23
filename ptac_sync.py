@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – FIXED for multi-line workout entries like "AG3 Zones -\n6:30 - 8:30 PM"
+PTAC Calendar Generator – Final version with duration-based AM/PM correction
+Assumes start time is AM if duration > 4 hours (fixes 11:45 PM problem)
 """
 
 import requests
@@ -95,13 +96,12 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
     current_date = None
     current_location = ""
     current_notes = []
-    buffer = ""   # to handle split lines
+    buffer = ""
 
     i = 0
     while i < len(lines):
         line = lines[i]
 
-        # Date
         date_m = re.match(r'^(\*?\*?)?(\d{1,2})/(\d{1,2})(\*?\*?)?$', line)
         if date_m:
             if current_date:
@@ -118,7 +118,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # Location
         loc_m = re.match(r'^[A-Z][a-zA-Z& ]{2,}$', line)
         if loc_m and not re.search(r'\d', line):
             if current_notes:
@@ -129,9 +128,9 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # IMPROVED: Combine current line with buffer to catch split times
+        # Combine buffer to handle split lines
         current_line = (buffer + " " + line).strip() if buffer else line
-        buffer = line  # save for next iteration in case time is split
+        buffer = line
 
         workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', current_line)
         if workout_m:
@@ -155,13 +154,17 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 start_dt = datetime(year, current_date[0], current_date[1], start_t.hour, start_t.minute)
                 end_dt = datetime(year, current_date[0], current_date[1], end_t.hour, end_t.minute)
 
-                if end_dt < start_dt:
+                # NEW LOGIC: If duration > 4 hours, assume start was meant to be AM
+                duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                if duration_hours > 4 or duration_hours < 0:
+                    if debug:
+                        print(f"[DEBUG] Duration too long ({duration_hours:.1f} h) – forcing start to AM for {group}")
                     start_dt = start_dt.replace(hour=start_dt.hour - 12)
                     if start_dt.hour < 0:
                         start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
 
                 if debug:
-                    print(f"[DEBUG] Added timed event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location}")
+                    print(f"[DEBUG] Final event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location} (duration: {duration_hours:.1f} h)")
 
                 events.append({
                     'summary': f"{group} Workout",
