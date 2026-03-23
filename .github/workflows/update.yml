@@ -24,7 +24,7 @@ jobs:
           pip install requests beautifulsoup4
 
       - name: Generate calendars
-        run: python ptac_generator.py --with-addresses
+        run: python ptac_sync.py --with-addresses
 
       - name: Commit updated calendars
         run: |
