@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator
-- all.ics                  → Everything
-- AG1.ics, AG2.ics, ...    → Timed workouts only for that group
-- all-day.ics              → All-day events only (meets, cancellations, notes, etc.)
+PTAC Calendar Generator – Updated for GitHub Actions Node 24 compatibility
 """
 
 import requests
@@ -59,6 +56,46 @@ def fetch_page():
         sys.exit(1)
 
 
+def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> dtime:
+    tstr = tstr.strip().upper()
+    ampm_match = re.search(r'(AM|PM)', tstr)
+    clean = re.sub(r'(AM|PM)', '', tstr, re.IGNORECASE).strip()
+
+    try:
+        h_str, m_str = clean.split(':')
+        h = int(h_str)
+        m = int(m_str or '0')
+    except:
+        if debug:
+            print(f"[DEBUG] Time split failed: '{tstr}'")
+        raise
+
+    if ampm_match:
+        ampm = ampm_match.group(0).upper()
+        if ampm == 'PM' and h < 12:
+            h += 12
+        elif ampm == 'AM' and h == 12:
+            h = 0
+    else:
+        if end_ampm_hint == 'PM' and h < 11:
+            h += 12
+            ampm = 'PM (from end hint)'
+        elif end_ampm_hint == 'AM' and h == 12:
+            h = 0
+            ampm = 'AM (from end hint)'
+        else:
+            if 4 <= h <= 10:
+                h += 12
+                ampm = 'PM (assumed)'
+            else:
+                ampm = 'AM/midday'
+
+    if debug:
+        print(f"[DEBUG] Parsed '{tstr}' → {h:02d}:{m:02d} ({ampm})")
+
+    return dtime(h % 24, m)
+
+
 def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool = False, debug: bool = False):
     if not raw_text:
         return []
@@ -101,10 +138,9 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # Timed workout
         workout_m = re.match(r'^([A-Z0-9]+)\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?$', line)
         if workout_m:
-            if only_all_day:  # skip workouts if we only want all-day
+            if only_all_day:
                 i += 1
                 continue
 
@@ -144,7 +180,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # All other lines are notes / all-day events
         current_notes.append(line)
         i += 1
 
@@ -153,48 +188,8 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
     return events
 
 
-def parse_time_str(tstr: str, end_ampm_hint: str = '', debug: bool = False) -> dtime:
-    tstr = tstr.strip().upper()
-    ampm_match = re.search(r'(AM|PM)', tstr)
-    clean = re.sub(r'(AM|PM)', '', tstr, re.IGNORECASE).strip()
-
-    try:
-        h_str, m_str = clean.split(':')
-        h = int(h_str)
-        m = int(m_str or '0')
-    except:
-        if debug:
-            print(f"[DEBUG] Time split failed: '{tstr}'")
-        raise
-
-    if ampm_match:
-        ampm = ampm_match.group(0).upper()
-        if ampm == 'PM' and h < 12:
-            h += 12
-        elif ampm == 'AM' and h == 12:
-            h = 0
-    else:
-        if end_ampm_hint == 'PM' and h < 11:
-            h += 12
-            ampm = 'PM (from end hint)'
-        elif end_ampm_hint == 'AM' and h == 12:
-            h = 0
-            ampm = 'AM (from end hint)'
-        else:
-            if 4 <= h <= 10:
-                h += 12
-                ampm = 'PM (assumed)'
-            else:
-                ampm = 'AM/midday'
-
-    if debug:
-        print(f"[DEBUG] Parsed '{tstr}' → {h:02d}:{m:02d} ({ampm})")
-
-    return dtime(h % 24, m)
-
-
 def flush_day(events, year, date_tuple, location, notes, only_all_day: bool, debug: bool):
-    if not notes:
+    if not notes or (not only_all_day and len(notes) == 0):
         return
     month, day = date_tuple
     summary = " → ".join(notes[:3]) if len(notes) > 3 else " → ".join(notes)
@@ -209,7 +204,7 @@ def flush_day(events, year, date_tuple, location, notes, only_all_day: bool, deb
 
 def generate_ics(events, filename, calendar_name: str, with_addresses: bool = False):
     now = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    events = [ev for ev in events if ev['start'].date() >= now.date()]  # today + future
+    events = [ev for ev in events if ev['start'].date() >= now.date()]
 
     lines = [
         "BEGIN:VCALENDAR",
