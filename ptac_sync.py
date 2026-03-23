@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – FINAL FIXED VERSION
-Correctly parses lines like "AG3 Zones - 6:30 - 8:30 PM" as timed events
+PTAC Calendar Generator – FIXED for "AG3 Zones - 6:30 - 8:30 PM" lines
 """
 
 import requests
@@ -127,7 +126,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # IMPROVED WORKOUT DETECTION - catches "AG3 6:30 - 8:30 PM", "AG3 Zones - 6:30 - 8:30 PM", etc.
+        # STRONGER WORKOUT DETECTION - catches "AG3 Zones - 6:30 - 8:30 PM" and similar
         workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', line)
         if workout_m:
             if only_all_day:
@@ -173,7 +172,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # All other lines = notes / all-day
+        # All other lines = all-day / notes
         current_notes.append(line)
         i += 1
 
@@ -244,18 +243,15 @@ def main():
 
     print("Generating files...\n")
 
-    # 1. Everything
     events = parse_events(raw_text, debug=args.debug)
     generate_ics(events, OUTPUT / "all.ics", "PTAC All Events", args.with_addresses)
 
-    # 2. Per group - timed workouts only
     for group in GROUPS:
         group_events = parse_events(raw_text, allowed_groups={group}, only_all_day=False, debug=args.debug)
         filename = OUTPUT / f"{group}.ics"
         calendar_name = f"PTAC {group} Workouts"
         generate_ics(group_events, filename, calendar_name, args.with_addresses)
 
-    # 3. All-day events only
     all_day_events = parse_events(raw_text, only_all_day=True, debug=args.debug)
     generate_ics(all_day_events, OUTPUT / "all-day.ics", "PTAC All-Day Events & Meets", args.with_addresses)
 
