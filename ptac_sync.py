@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator - Final Fixed Version
-- Correctly parses 11:45 AM / 6:30 PM etc.
-- Separates timed workouts and all-day events
-- Proper calendar names
+PTAC Calendar Generator – FINAL FIXED VERSION
+Correctly parses lines like "AG3 Zones - 6:30 - 8:30 PM" as timed events
 """
 
 import requests
@@ -15,7 +13,6 @@ import argparse
 import sys
 from pathlib import Path
 
-# ==================== CONFIG ====================
 ADDRESS_MAP = {
     "Denunzio": "Stadium Dr, Princeton, NJ 08540",
     "WAC": "Windsor Athletic Club, 70 Palmer Drive, East Windsor, NJ 08520",
@@ -27,7 +24,6 @@ ADDRESS_MAP = {
 
 GROUPS = ["AG1", "AG2", "AG3", "SR", "JR", "VAR"]
 
-# ===============================================
 
 def ical_escape(text: str) -> str:
     return (
@@ -40,10 +36,8 @@ def ical_escape(text: str) -> str:
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="PTAC Calendar Generator")
-    parser.add_argument('--with-addresses', action='store_true',
-                        help='Convert locations to full street addresses')
-    parser.add_argument('--debug', action='store_true', default=False,
-                        help='Show debug output')
+    parser.add_argument('--with-addresses', action='store_true', help='Use full addresses')
+    parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     return parser.parse_args()
 
 
@@ -80,12 +74,11 @@ def parse_time_str(tstr: str, debug: bool = False) -> dtime:
         elif ampm == 'AM' and h == 12:
             h = 0
     else:
-        # Only assume PM for typical evening hours (4-10). 11 and 12 stay as AM/midday.
         if 4 <= h <= 10:
             h += 12
 
     if debug:
-        print(f"[DEBUG] Parsed '{tstr}' → {h:02d}:{m:02d}")
+        print(f"[DEBUG] Parsed time '{tstr}' → {h:02d}:{m:02d}")
 
     return dtime(h % 24, m)
 
@@ -108,7 +101,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
     while i < len(lines):
         line = lines[i]
 
-        # Date detection
+        # Date
         date_m = re.match(r'^(\*?\*?)?(\d{1,2})/(\d{1,2})(\*?\*?)?$', line)
         if date_m:
             if current_date:
@@ -134,7 +127,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # Workout detection - improved to catch "AG3 11:45-2:00PM", "AG3 Zones - 6:30 - 8:30 PM", etc.
+        # IMPROVED WORKOUT DETECTION - catches "AG3 6:30 - 8:30 PM", "AG3 Zones - 6:30 - 8:30 PM", etc.
         workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', line)
         if workout_m:
             if only_all_day:
@@ -157,17 +150,13 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 start_dt = datetime(year, current_date[0], current_date[1], start_t.hour, start_t.minute)
                 end_dt = datetime(year, current_date[0], current_date[1], end_t.hour, end_t.minute)
 
-                # Fix invalid time order (most common bug)
                 if end_dt < start_dt:
-                    if debug:
-                        print(f"[DEBUG] Invalid order detected – forcing start to AM for {group}")
                     start_dt = start_dt.replace(hour=start_dt.hour - 12)
                     if start_dt.hour < 0:
                         start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
 
-                duration_hours = (end_dt - start_dt).total_seconds() / 3600
                 if debug:
-                    print(f"[DEBUG] Final event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location} (duration: {duration_hours:.1f} h)")
+                    print(f"[DEBUG] Added timed event: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location}")
 
                 events.append({
                     'summary': f"{group} Workout",
@@ -184,7 +173,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # All other lines are notes/all-day
+        # All other lines = notes / all-day
         current_notes.append(line)
         i += 1
 
@@ -255,7 +244,7 @@ def main():
 
     print("Generating files...\n")
 
-    # 1. Everything (timed + all-day)
+    # 1. Everything
     events = parse_events(raw_text, debug=args.debug)
     generate_ics(events, OUTPUT / "all.ics", "PTAC All Events", args.with_addresses)
 
