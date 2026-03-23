@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – FIXED for "AG3 Zones - 6:30 - 8:30 PM" lines
+PTAC Calendar Generator – FIXED for multi-line workout entries like "AG3 Zones -\n6:30 - 8:30 PM"
 """
 
 import requests
@@ -95,6 +95,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
     current_date = None
     current_location = ""
     current_notes = []
+    buffer = ""   # to handle split lines
 
     i = 0
     while i < len(lines):
@@ -109,6 +110,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             current_date = (month, day)
             current_location = ""
             current_notes = []
+            buffer = ""
             i += 1
             continue
 
@@ -123,11 +125,15 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
             current_location = loc_m.group(0).strip()
             current_notes = []
+            buffer = ""
             i += 1
             continue
 
-        # STRONGER WORKOUT DETECTION - catches "AG3 Zones - 6:30 - 8:30 PM" and similar
-        workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', line)
+        # IMPROVED: Combine current line with buffer to catch split times
+        current_line = (buffer + " " + line).strip() if buffer else line
+        buffer = line  # save for next iteration in case time is split
+
+        workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', current_line)
         if workout_m:
             if only_all_day:
                 i += 1
@@ -162,17 +168,17 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                     'start': start_dt,
                     'end': end_dt,
                     'location': current_location,
-                    'description': line
+                    'description': current_line
                 })
                 current_notes = []
+                buffer = ""
             except Exception as e:
                 if debug:
-                    print(f"[DEBUG] Parse error on '{line}': {e}")
+                    print(f"[DEBUG] Parse error on '{current_line}': {e}")
                 current_notes.append(line)
             i += 1
             continue
 
-        # All other lines = all-day / notes
         current_notes.append(line)
         i += 1
 
