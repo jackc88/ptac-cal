@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – Robust version for JR 7:30 - 9:00 PM on 04/13 at Denunzio
+PTAC Calendar Generator – Most robust version for missing JR 7:30 PM on 04/13
 """
 
 import requests
@@ -36,7 +36,7 @@ def ical_escape(text: str) -> str:
 def parse_arguments():
     parser = argparse.ArgumentParser(description="PTAC Calendar Generator")
     parser.add_argument('--with-addresses', action='store_true', help='Use full addresses')
-    parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
+    parser.add_argument('--debug', action='store_true', default=True, help='Debug output')
     return parser.parse_args()
 
 
@@ -129,12 +129,12 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # Combine buffer to catch split times
+        # Combine buffer for split lines
         current_line = (buffer + " " + line).strip() if buffer else line
         buffer = line
 
-        # Stronger workout detection
-        workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', current_line)
+        # Very lenient workout detection
+        workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', current_line, re.IGNORECASE)
         if workout_m:
             if only_all_day:
                 i += 1
@@ -156,9 +156,11 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 start_dt = datetime(year, current_date[0], current_date[1], start_t.hour, start_t.minute)
                 end_dt = datetime(year, current_date[0], current_date[1], end_t.hour, end_t.minute)
 
-                if end_dt < start_dt:
+                # Duration-based correction (max 4 hours for workouts)
+                duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                if duration_hours > 4 or duration_hours < 0:
                     if debug:
-                        print(f"[DEBUG] Invalid order – forcing start to AM for {group}")
+                        print(f"[DEBUG] Duration too long ({duration_hours:.1f} h) – forcing start to AM for {group}")
                     start_dt = start_dt.replace(hour=start_dt.hour - 12)
                     if start_dt.hour < 0:
                         start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
