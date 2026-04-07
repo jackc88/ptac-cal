@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – Most robust version for missing JR 7:30 PM on 04/13
+PTAC Calendar Generator – Ultra-robust version with full line logging
 """
 
 import requests
@@ -84,12 +84,18 @@ def parse_time_str(tstr: str, debug: bool = False) -> dtime:
 
 def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool = False, debug: bool = False):
     if not raw_text:
+        if debug:
+            print("[DEBUG] Empty raw_text")
         return []
 
     if allowed_groups is None:
         allowed_groups = set()
 
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    if debug:
+        print(f"[DEBUG] Total lines: {len(lines)}")
+        print("[DEBUG] First 20 lines:", lines[:20])
+
     events = []
     year = datetime.today().year
     current_date = None
@@ -100,14 +106,20 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
     i = 0
     while i < len(lines):
         line = lines[i]
+        if debug:
+            print(f"[DEBUG] Line {i+1}: {repr(line)}")
 
-        # Date
-        date_m = re.match(r'^(\*?\*?)?(\d{1,2})/(\d{1,2})(\*?\*?)?$', line)
+        # Very lenient date detection
+        date_m = re.search(r'(\d{1,2})/(\d{1,2})', line)
         if date_m:
             if current_date:
+                if debug:
+                    print(f"[DEBUG] Flushing previous date {current_date}")
                 flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
-            month, day = int(date_m.group(2)), int(date_m.group(3))
+            month, day = int(date_m.group(1)), int(date_m.group(2))
             current_date = (month, day)
+            if debug:
+                print(f"[DEBUG] New date detected: {month}/{day}")
             current_location = ""
             current_notes = []
             buffer = ""
@@ -122,19 +134,19 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
         loc_m = re.match(r'^[A-Z][a-zA-Z& ]{2,}$', line)
         if loc_m and not re.search(r'\d', line):
             if current_notes:
+                if debug:
+                    print("[DEBUG] Flushing notes before new location")
                 flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
             current_location = loc_m.group(0).strip()
+            if debug:
+                print(f"[DEBUG] New location: {current_location}")
             current_notes = []
             buffer = ""
             i += 1
             continue
 
-        # Combine buffer for split lines
-        current_line = (buffer + " " + line).strip() if buffer else line
-        buffer = line
-
-        # Very lenient workout detection
-        workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', current_line, re.IGNORECASE)
+        # Very lenient workout detection (catches JR 7:30 - 9:00 PM even if split)
+        workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', line, re.IGNORECASE)
         if workout_m:
             if only_all_day:
                 i += 1
@@ -146,6 +158,8 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             ampm = workout_m.group(4) or ''
 
             if allowed_groups and group not in allowed_groups:
+                if debug:
+                    print(f"[DEBUG] Skipped group {group}")
                 i += 1
                 continue
 
@@ -156,11 +170,9 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 start_dt = datetime(year, current_date[0], current_date[1], start_t.hour, start_t.minute)
                 end_dt = datetime(year, current_date[0], current_date[1], end_t.hour, end_t.minute)
 
-                # Duration-based correction (max 4 hours for workouts)
-                duration_hours = (end_dt - start_dt).total_seconds() / 3600
-                if duration_hours > 4 or duration_hours < 0:
+                if end_dt < start_dt:
                     if debug:
-                        print(f"[DEBUG] Duration too long ({duration_hours:.1f} h) – forcing start to AM for {group}")
+                        print(f"[DEBUG] Invalid order – forcing start to AM for {group}")
                     start_dt = start_dt.replace(hour=start_dt.hour - 12)
                     if start_dt.hour < 0:
                         start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
@@ -173,13 +185,13 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                     'start': start_dt,
                     'end': end_dt,
                     'location': current_location,
-                    'description': current_line
+                    'description': line
                 })
                 current_notes = []
                 buffer = ""
             except Exception as e:
                 if debug:
-                    print(f"[DEBUG] Parse error on '{current_line}': {e}")
+                    print(f"[DEBUG] Parse error on '{line}': {e}")
                 current_notes.append(line)
             i += 1
             continue
@@ -188,6 +200,8 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
         i += 1
 
     if current_date:
+        if debug:
+            print(f"[DEBUG] Final flush for date {current_date}")
         flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
     return events
 
