@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PTAC Calendar Generator – Ultra-robust version with full line logging
+PTAC Calendar Generator – SUMMARY now prefixed with "PTAC "
 """
 
 import requests
@@ -36,7 +36,7 @@ def ical_escape(text: str) -> str:
 def parse_arguments():
     parser = argparse.ArgumentParser(description="PTAC Calendar Generator")
     parser.add_argument('--with-addresses', action='store_true', help='Use full addresses')
-    parser.add_argument('--debug', action='store_true', default=True, help='Debug output')
+    parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     return parser.parse_args()
 
 
@@ -84,18 +84,12 @@ def parse_time_str(tstr: str, debug: bool = False) -> dtime:
 
 def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool = False, debug: bool = False):
     if not raw_text:
-        if debug:
-            print("[DEBUG] Empty raw_text")
         return []
 
     if allowed_groups is None:
         allowed_groups = set()
 
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
-    if debug:
-        print(f"[DEBUG] Total lines: {len(lines)}")
-        print("[DEBUG] First 20 lines:", lines[:20])
-
     events = []
     year = datetime.today().year
     current_date = None
@@ -106,20 +100,13 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
     i = 0
     while i < len(lines):
         line = lines[i]
-        if debug:
-            print(f"[DEBUG] Line {i+1}: {repr(line)}")
 
-        # Very lenient date detection
-        date_m = re.search(r'(\d{1,2})/(\d{1,2})', line)
+        date_m = re.match(r'^(\*?\*?)?(\d{1,2})/(\d{1,2})(\*?\*?)?$', line)
         if date_m:
             if current_date:
-                if debug:
-                    print(f"[DEBUG] Flushing previous date {current_date}")
                 flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
-            month, day = int(date_m.group(1)), int(date_m.group(2))
+            month, day = int(date_m.group(2)), int(date_m.group(3))
             current_date = (month, day)
-            if debug:
-                print(f"[DEBUG] New date detected: {month}/{day}")
             current_location = ""
             current_notes = []
             buffer = ""
@@ -130,22 +117,17 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # Location
         loc_m = re.match(r'^[A-Z][a-zA-Z& ]{2,}$', line)
         if loc_m and not re.search(r'\d', line):
             if current_notes:
-                if debug:
-                    print("[DEBUG] Flushing notes before new location")
                 flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
             current_location = loc_m.group(0).strip()
-            if debug:
-                print(f"[DEBUG] New location: {current_location}")
             current_notes = []
             buffer = ""
             i += 1
             continue
 
-        # Very lenient workout detection (catches JR 7:30 - 9:00 PM even if split)
+        # Lenient workout detection
         workout_m = re.search(r'([A-Z0-9]+).*?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?', line, re.IGNORECASE)
         if workout_m:
             if only_all_day:
@@ -158,8 +140,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             ampm = workout_m.group(4) or ''
 
             if allowed_groups and group not in allowed_groups:
-                if debug:
-                    print(f"[DEBUG] Skipped group {group}")
                 i += 1
                 continue
 
@@ -171,8 +151,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 end_dt = datetime(year, current_date[0], current_date[1], end_t.hour, end_t.minute)
 
                 if end_dt < start_dt:
-                    if debug:
-                        print(f"[DEBUG] Invalid order – forcing start to AM for {group}")
                     start_dt = start_dt.replace(hour=start_dt.hour - 12)
                     if start_dt.hour < 0:
                         start_dt = start_dt.replace(day=start_dt.day - 1, hour=start_dt.hour + 24)
@@ -181,7 +159,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                     print(f"[DEBUG] Added: {group} {start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} @ {current_location}")
 
                 events.append({
-                    'summary': f"{group} Workout",
+                    'summary': f"PTAC {group} Workout",   # ← PTAC prepended here
                     'start': start_dt,
                     'end': end_dt,
                     'location': current_location,
@@ -200,8 +178,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
         i += 1
 
     if current_date:
-        if debug:
-            print(f"[DEBUG] Final flush for date {current_date}")
         flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
     return events
 
@@ -212,7 +188,7 @@ def flush_day(events, year, date_tuple, location, notes, only_all_day: bool, deb
     month, day = date_tuple
     summary = " → ".join(notes[:3]) if len(notes) > 3 else " → ".join(notes)
     events.append({
-        'summary': summary or "Special Event",
+        'summary': f"PTAC {summary}",   # ← PTAC prepended here too
         'start': datetime(year, month, day, 0, 0),
         'end': datetime(year, month, day, 23, 59, 59),
         'location': location,
