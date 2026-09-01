@@ -219,4 +219,117 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 duration = (end_dt - start_dt).total_seconds() / 3600
                 if duration < 0:
                     end_dt += timedelta(days=1)
-                    duration = (end_dt - 
+                    duration = (end_dt - start_dt).total_seconds() / 3600
+
+                if debug:
+                    print(f"[DEBUG] Final: {group} {start_dt.strftime('%I:%M %p')} → {end_dt.strftime('%I:%M %p')} "
+                          f"@ {current_location} ({duration:.1f}h)")
+
+                events.append({
+                    'summary': f"PTAC {group} Workout" if group != "Workout" else "PTAC Workout",
+                    'start': start_dt,
+                    'end': end_dt,
+                    'location': current_location,
+                    'description': line
+                })
+                current_notes = []
+            except Exception as e:
+                if debug:
+                    print(f"[DEBUG] Parse error on '{line}': {e}")
+                current_notes.append(line)
+            i += 1
+            continue
+
+        current_notes.append(line)
+        i += 1
+
+    if current_date:
+        flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
+    return events
+
+
+def flush_day(events, year, date_tuple, location, notes, only_all_day: bool, debug: bool):
+    if not notes or (not only_all_day and len(notes) == 0):
+        return
+    month, day = date_tuple
+    summary = " → ".join(notes[:3]) if len(notes) > 3 else " → ".join(notes)
+    events.append({
+        'summary': f"PTAC {summary}",
+        'start': datetime(year, month, day, 0, 0),
+        'end': datetime(year, month, day, 23, 59, 59),
+        'location': location,
+        'description': "\n".join(notes)
+    })
+
+
+def generate_ics(events, filename, calendar_name: str, with_addresses: bool = False):
+    now = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    events = [ev for ev in events if ev['start'].date() >= now.date()]
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        f"X-WR-CALNAME:{calendar_name}",
+        "PRODID:-//PTAC Calendar Generator//EN",
+        "CALSCALE:GREGORIAN",
+    ]
+
+    for ev in events:
+        loc = ev.get('location', '')
+        loc_key = loc
+        for key in ADDRESS_MAP:
+            if key.lower() in loc.lower():
+                loc_key = key
+                break
+
+        if with_addresses and loc_key in ADDRESS_MAP:
+            loc = ADDRESS_MAP[loc_key]
+
+        uid = str(uuid.uuid4())
+        lines.extend([
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTAMP:{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
+            f"DTSTART:{ev['start'].strftime('%Y%m%dT%H%M%S')}",
+            f"DTEND:{ev['end'].strftime('%Y%m%dT%H%M%S')}",
+            f"SUMMARY:{ical_escape(ev['summary'])}",
+            f"LOCATION:{ical_escape(loc)}",
+            f"DESCRIPTION:{ical_escape(ev['description'])}",
+            "END:VEVENT",
+        ])
+
+    lines.append("END:VCALENDAR")
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
+    print(f"Created: {filename} ({len(events)} events) → {calendar_name}")
+
+
+def main():
+    args = parse_arguments()
+
+    print("Fetching latest PTAC calendar...")
+    raw_text = fetch_page()
+
+    OUTPUT = Path("output")
+    OUTPUT.mkdir(exist_ok=True)
+
+    print("Generating files...\n")
+
+    events = parse_events(raw_text, debug=args.debug)
+    generate_ics(events, OUTPUT / "all.ics", "PTAC All Events", args.with_addresses)
+
+    for group in GROUPS:
+        group_events = parse_events(raw_text, allowed_groups={group}, only_all_day=False, debug=args.debug)
+        filename = OUTPUT / f"{group}.ics"
+        calendar_name = f"PTAC {group} Workouts"
+        generate_ics(group_events, filename, calendar_name, args.with_addresses)
+
+    all_day_events = parse_events(raw_text, only_all_day=True, debug=args.debug)
+    generate_ics(all_day_events, OUTPUT / "all-day.ics", "PTAC All-Day Events & Meets", args.with_addresses)
+
+    print("\nAll files generated in ./output/")
+
+
+if __name__ == '__main__':
+    main()
