@@ -80,4 +80,32 @@ def parse_time_str(tstr: str, debug: bool = False) -> dtime:
     return dtime(h % 24, m)
 
 
-def 
+def choose_best_start(start_str: str, end_dt: datetime, year: int, month: int, day: int, debug: bool = False):
+    """
+    If start time has no AM/PM, try both possibilities and pick the one
+    that results in a duration less than 6 hours.
+    """
+    start_has_ampm = bool(re.search(r'(AM|PM)', start_str, re.IGNORECASE))
+
+    try:
+        start_t = parse_time_str(start_str, debug=debug)
+        start_dt = datetime(year, month, day, start_t.hour, start_t.minute)
+        duration = (end_dt - start_dt).total_seconds() / 3600
+
+        if start_has_ampm or (0 < duration < 6):
+            if debug:
+                print(f"[DEBUG] Using start {start_dt.strftime('%I:%M %p')} (duration {duration:.1f}h)")
+            return start_dt
+    except Exception:
+        pass
+
+    candidates = []
+    for force_pm in [False, True]:
+        try:
+            clean = re.sub(r'(AM|PM)', '', start_str, flags=re.IGNORECASE).strip()
+            h, m = map(int, clean.split(':'))
+            if force_pm and h < 12:
+                h += 12
+            elif not force_pm and h == 12:
+                h = 0
+            candidate = 
