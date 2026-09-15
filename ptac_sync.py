@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 PTAC Calendar Generator
-- Handles both "JR 7:30 - 9:30 PM" and pure time lines "5:30 - 7:30 PM"
+- Exits early if website content has not changed (content hash)
+- Automatically forces regeneration if any ICS file is missing or empty
+- Writes short timestamped debug lines to run.log
 - Denunzio address: DeNunzio Pool, Faculty Road
 - Start time AM/PM chosen so duration < 6 hours
 """
@@ -13,6 +15,7 @@ import re
 import uuid
 import argparse
 import sys
+import hashlib
 from pathlib import Path
 
 ADDRESS_MAP = {
@@ -28,6 +31,18 @@ ADDRESS_MAP = {
 
 GROUPS = ["AG1", "AG2", "AG3", "SR", "JR", "VAR"]
 
+HASH_FILE = Path("last_content_hash.txt")
+LOG_FILE = Path("run.log")
+
+
+def log(msg: str):
+    """Append a short timestamped line to run.log and also print it."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    line = f"[{ts}] {msg}"
+    print(line)
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
 
 def ical_escape(text: str) -> str:
     return (
@@ -41,7 +56,8 @@ def ical_escape(text: str) -> str:
 def parse_arguments():
     parser = argparse.ArgumentParser(description="PTAC Calendar Generator")
     parser.add_argument('--with-addresses', action='store_true', help='Use full addresses')
-    parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
+    parser.add_argument('--debug', action='store_true', default=False, help='Verbose debug output')
+    parser.add_argument('--force', action='store_true', help='Ignore hash and always regenerate')
     return parser.parse_args()
 
 
@@ -53,8 +69,54 @@ def fetch_page():
         soup = BeautifulSoup(r.text, 'html.parser')
         return soup.get_text(separator='\n', strip=True)
     except Exception as e:
-        print(f"Fetch failed: {e}")
+        log(f"Fetch failed: {e}")
         sys.exit(1)
+
+
+def get_content_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def ics_files_ok() -> bool:
+    """Return True only if all expected ICS files exist and have content."""
+    expected = ["all.ics", "all-day.ics"] + [f"{g}.ics" for g in GROUPS]
+    output_dir = Path("output")
+
+    if not output_dir.exists():
+        log("output/ directory missing")
+        return False
+
+    for name in expected:
+        f = output_dir / name
+        if not f.exists():
+            log(f"Missing ICS file: {name}")
+            return False
+        if f.stat().st_size == 0:
+            log(f"Empty ICS file: {name}")
+            return False
+    return True
+
+
+def has_changed(raw_text: str, force: bool = False) -> bool:
+    current_hash = get_content_hash(raw_text)
+    log(f"Content hash: {current_hash[:16]}...")
+
+    if force:
+        log("Force regeneration requested")
+        HASH_FILE.write_text(current_hash)
+        return True
+
+    if HASH_FILE.exists():
+        previous_hash = HASH_FILE.read_text().strip()
+        if current_hash == previous_hash:
+            log("No content changes detected")
+            return False
+        log("Content has changed since last run")
+    else:
+        log("No previous hash found (first run)")
+
+    HASH_FILE.write_text(current_hash)
+    return True
 
 
 def parse_time_str(tstr: str, debug: bool = False) -> dtime:
@@ -139,7 +201,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
     while i < len(lines):
         line = lines[i]
 
-        # Date
         date_m = re.search(r'(\d{1,2})/(\d{1,2})', line)
         if date_m:
             if current_date:
@@ -148,8 +209,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             current_date = (month, day)
             current_location = ""
             current_notes = []
-            if debug:
-                print(f"[DEBUG] New date: {month}/{day}")
             i += 1
             continue
 
@@ -157,30 +216,27 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
             i += 1
             continue
 
-        # Location (ignore "August Training", "Group", etc.)
         loc_m = re.match(r'^[A-Z][a-zA-Z& ]{2,}$', line)
         if loc_m and not re.search(r'\d', line):
             loc = loc_m.group(0).strip()
-            # Skip non-location words that look like titles
-            if loc.lower() in {"august training", "group", "gym and swim", "dryland only!", "suit fitting!", "labor day", "no practices!"}:
+            if loc.lower() in {
+                "august training", "group", "gym and swim",
+                "dryland only!", "suit fitting!", "labor day", "no practices!"
+            }:
                 i += 1
                 continue
             if current_notes:
                 flush_day(events, year, current_date, current_location, current_notes, only_all_day, debug)
             current_location = loc
             current_notes = []
-            if debug:
-                print(f"[DEBUG] Location: {current_location}")
             i += 1
             continue
 
-        # 1. Normal group workout: "JR 7:30 - 9:30 PM" or "AG3 6:30 - 8:30 PM"
+        # Group workout or pure time line
         workout_m = re.search(
             r'([A-Z0-9]+)\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?',
             line, re.IGNORECASE
         )
-
-        # 2. Pure time line (no group): "5:30 - 7:30 PM"
         pure_time_m = re.search(
             r'^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*([AP]M)?$',
             line, re.IGNORECASE
@@ -197,7 +253,7 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 end_str = workout_m.group(3)
                 end_ampm = (workout_m.group(4) or '').upper()
             else:
-                group = "Workout"          # generic when no group code
+                group = "Workout"
                 start_str = pure_time_m.group(1)
                 end_str = pure_time_m.group(2)
                 end_ampm = (pure_time_m.group(3) or '').upper()
@@ -219,11 +275,6 @@ def parse_events(raw_text: str, allowed_groups: set = None, only_all_day: bool =
                 duration = (end_dt - start_dt).total_seconds() / 3600
                 if duration < 0:
                     end_dt += timedelta(days=1)
-                    duration = (end_dt - start_dt).total_seconds() / 3600
-
-                if debug:
-                    print(f"[DEBUG] Final: {group} {start_dt.strftime('%I:%M %p')} → {end_dt.strftime('%I:%M %p')} "
-                          f"@ {current_location} ({duration:.1f}h)")
 
                 events.append({
                     'summary': f"PTAC {group} Workout" if group != "Workout" else "PTAC Workout",
@@ -308,12 +359,23 @@ def generate_ics(events, filename, calendar_name: str, with_addresses: bool = Fa
 def main():
     args = parse_arguments()
 
+    log("Starting PTAC calendar sync")
+
     print("Fetching latest PTAC calendar...")
     raw_text = fetch_page()
+    log(f"Fetched {len(raw_text)} characters")
+
+    # Automatically force if any ICS file is missing or empty
+    force_needed = args.force or not ics_files_ok()
+
+    if not has_changed(raw_text, force=force_needed):
+        log("Done (no changes)")
+        sys.exit(0)
 
     OUTPUT = Path("output")
     OUTPUT.mkdir(exist_ok=True)
 
+    log("Generating ICS files...")
     print("Generating files...\n")
 
     events = parse_events(raw_text, debug=args.debug)
@@ -328,6 +390,7 @@ def main():
     all_day_events = parse_events(raw_text, only_all_day=True, debug=args.debug)
     generate_ics(all_day_events, OUTPUT / "all-day.ics", "PTAC All-Day Events & Meets", args.with_addresses)
 
+    log("Generation complete")
     print("\nAll files generated in ./output/")
 
 
