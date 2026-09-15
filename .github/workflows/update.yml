@@ -2,8 +2,9 @@ name: Update PTAC Calendars
 
 on:
   schedule:
-    - cron: '15 * * * *'     # Runs every hour, between 04:00 and 21:00
-  workflow_dispatch:        # Allows manual trigger
+    # Runs every day at 05:00 UTC (1:00 AM EDT / 12:00 AM EST)
+    - cron: '0 5 * * *'
+  workflow_dispatch:   # Allows manual runs from the Actions tab
 
 jobs:
   generate:
@@ -26,14 +27,18 @@ jobs:
       - name: Generate calendars
         run: python ptac_sync.py --with-addresses
 
-      - name: Commit updated calendars
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add output/
+
+          # Stage the important files
+          git add output/ last_content_hash.txt run.log
+
+          # Only commit if there are actual changes
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update PTAC calendars - $(date '+%Y-%m-%d %H:%M:%S UTC')"
+            git commit -m "Update PTAC calendars $(date -u +'%Y-%m-%d %H:%M UTC')"
             git push
           fi
