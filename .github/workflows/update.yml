@@ -2,7 +2,7 @@ name: Update PTAC Calendars
 
 on:
   schedule:
-    - cron: '0 21 * * *'     # Runs daily at 5:00 AM UTC
+    - cron: '15 * * * *'     # Runs every hour, between 04:00 and 21:00
   workflow_dispatch:        # Allows manual trigger
 
 jobs:
