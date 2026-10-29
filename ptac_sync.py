@@ -27,6 +27,8 @@ ADDRESS_MAP = {
     "Princeton MS": "Princeton Middle School Pool, 217 Walnut Lane, Princeton, NJ 08540",
     "Waterworks": "Waterworks Park Pool, Princeton, NJ 08540",
     "PMS": "Princeton Middle School Pool, 217 Walnut Lane, Princeton, NJ 08540",
+    "HHS": "Hightstown High School, 25 Leshin Ln, Hightstown, NJ 08520",
+    "Hightstown": "Hightstown High School, 25 Leshin Ln, Hightstown, NJ 08520",
 }
 
 GROUPS = ["AG1", "AG2", "AG3", "SR", "JR", "VAR"]
@@ -325,16 +327,25 @@ def generate_ics(events, filename, calendar_name: str, with_addresses: bool = Fa
         "CALSCALE:GREGORIAN",
     ]
 
-    for ev in events:
-        loc = ev.get('location', '')
-        loc_key = loc
-        for key in ADDRESS_MAP:
-            if key.lower() in loc.lower():
-                loc_key = key
-                break
+    # Build a case-insensitive lookup dictionary once
+    address_lookup = {k.lower(): v for k, v in ADDRESS_MAP.items()}
 
-        if with_addresses and loc_key in ADDRESS_MAP:
-            loc = ADDRESS_MAP[loc_key]
+    for ev in events:
+        loc = ev.get('location', '').strip()
+        loc_lower = loc.lower()
+
+        # Try exact match first, then partial match
+        resolved = None
+        if loc_lower in address_lookup:
+            resolved = address_lookup[loc_lower]
+        else:
+            for key, addr in address_lookup.items():
+                if key in loc_lower or loc_lower in key:
+                    resolved = addr
+                    break
+
+        if with_addresses and resolved:
+            loc = resolved
 
         uid = str(uuid.uuid4())
         lines.extend([
