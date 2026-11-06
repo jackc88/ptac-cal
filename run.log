@@ -279,3 +279,9 @@
 [2026-11-05 12:50:02 UTC] Content hash: 0b3aefdd04c47ff7...
 [2026-11-05 12:50:02 UTC] No content changes detected
 [2026-11-05 12:50:02 UTC] Done (no changes)
+[2026-11-06 12:35:16 UTC] Starting PTAC calendar sync
+[2026-11-06 12:35:16 UTC] Fetched 6842 characters
+[2026-11-06 12:35:16 UTC] Content hash: 4d4836cc8b9cda9e...
+[2026-11-06 12:35:16 UTC] Content has changed since last run
+[2026-11-06 12:35:16 UTC] Generating ICS files...
+[2026-11-06 12:35:16 UTC] Generation complete
